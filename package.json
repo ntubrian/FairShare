@@ -25,11 +25,14 @@
     "graphql": "^16.12.0",
     "graphql-http": "^1.22.4",
     "graphql-request": "^7.4.0",
+    "graphql-scalars": "^1.25.0",
     "loader-utils": "3.2.1",
     "pg": "^8.18.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "reflect-metadata": "^0.2.2",
+    "type-graphql": "^2.0.0-rc.3"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.1.1",
@@ -52,15 +55,15 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "start": "HOST=0.0.0.0 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
-    "dev:client": "yarn workspace client start",
-    "dev:server": "yarn workspace server dev",
     "dev": "concurrently -k \"yarn dev:server\" \"yarn dev:client\"",
+    "dev:client": "react-scripts start",
+    "dev:server": "TSX_TSCONFIG_PATH=tsconfig.server.json tsx watch server/index.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
-    "db:migrate": "tsx server/scripts/migrate.ts",
+    "db:migrate": "TSX_TSCONFIG_PATH=tsconfig.server.json tsx server/scripts/migrate.ts",
     "graphql:prepare": "yarn schema:generate && yarn codegen",
-    "schema:generate": "tsx server/scripts/generate-schema.ts",
+    "schema:generate": "TSX_TSCONFIG_PATH=tsconfig.server.json tsx server/scripts/generate-schema.ts",
     "codegen": "graphql-codegen --config codegen.yml",
-    "test:functional": "tsx --test server/tests/api.functional.test.ts",
+    "test:functional": "TSX_TSCONFIG_PATH=tsconfig.server.json tsx --test server/tests/api.functional.test.ts",
     "test:functional:db": "yarn db:migrate && yarn test:functional"
   },
   "browserslist": [
@@ -68,5 +71,10 @@
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "resolutions": {
+    "string-width": "4.2.3",
+    "strip-ansi": "6.0.1",
+    "wrap-ansi": "7.0.0"
+  }
 }
