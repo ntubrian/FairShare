@@ -15,6 +15,7 @@
 ### 3.1 In Scope (v1)
 
 - Create and switch projects (multi-project isolation).
+- Join projects via share link or invite code.
 - Google sign-in.
 - Add/remove participants (including removal validation).
 - Add, list, edit, soft delete, and restore expenses.
@@ -68,8 +69,20 @@ A[Enter App] --> B{Already signed in with Google?}
 B -- No --> C[Google OAuth Sign-in]
 B -- Yes --> D[Project List]
 C --> D
-D --> E[Create or Switch Project]
-E --> F[Manage Participants]
+D --> E{Create / Join / Open Existing}
+E --> E1[Create Project]
+E --> E2[Join Project]
+E --> E3[Open Existing Project]
+E1 --> E1a[Project Form: name + target currency + rate strategy]
+E1a --> E1b[Save Project and assign current user as Owner]
+E1b --> E1c[Optional invite step: share link or invite code]
+E2 --> E2a[Paste share link or enter invite code]
+E2a --> E2b{Invite valid?}
+E2b -- No --> E2c[Show validation error and retry]
+E2c --> E2a
+E2b -- Yes --> E3
+E1c --> E3
+E3 --> F[Manage Participants]
 F --> G[Add Expense]
 G --> H{Input validation passed?}
 H -- No --> I[Show inline validation errors]
@@ -101,6 +114,7 @@ T --> U[Export PDF]
 ### FR-2 Project Management
 
 - Users can create multiple projects.
+- Users can join projects via share link or invite code.
 - Users can switch between projects.
 - Project data must be fully isolated with no cross-project pollution.
 
@@ -162,6 +176,11 @@ T --> U[Export PDF]
 - Four currencies (USD/TWD/JPY/EUR) are selectable.
 - Users can create multiple projects and data remains correctly isolated when switching.
 - Users can trigger settlement in UI and see results in a Modal.
+
+### AC-1b Join Project Entry
+
+- Users can join a project via share link or invite code.
+- Invalid link/code must show a clear error and allow retry.
 
 ### AC-2 Participant Removal Validation
 
