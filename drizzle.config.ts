@@ -5,7 +5,7 @@ loadDotEnv();
 
 export default defineConfig({
   schema: "./server/db/schema.ts",
-  out: "./drizzle",
+  out: "./server/migrations",
   dialect: "postgresql",
   dbCredentials: {
     url:
