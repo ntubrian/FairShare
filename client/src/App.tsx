@@ -16,6 +16,7 @@ import type {
 } from "./features/dashboard/types";
 import { resolveInviteCode } from "./features/dashboard/utils";
 import { ExpensesScreen } from "./features/expenses/ExpensesScreen";
+import styles from "./App.module.scss";
 import { authStorage, graphqlEndpoint } from "./graphql/apolloClient";
 import {
   ArchiveProjectDocument,
@@ -101,6 +102,8 @@ export default function App() {
   const [consumedInviteCode, setConsumedInviteCode] = useState("");
   const [joinFeedback, setJoinFeedback] = useState<JoinFeedback | null>(null);
   const [openJoinSignal, setOpenJoinSignal] = useState(0);
+  const [inviteLinkJoinPendingCount, setInviteLinkJoinPendingCount] =
+    useState(0);
 
   const { canInstall, installed, promptInstall } = useInstallPrompt();
   const showDevBypass = process.env.REACT_APP_ENABLE_DEV_BYPASS === "true";
@@ -147,6 +150,7 @@ export default function App() {
     [location.pathname, location.search]
   );
   const isAuthChecking = authHint && (viewerLoading || initializing);
+  const inviteLinkBusy = inviteLinkJoinPendingCount > 0;
   const inviteBaseUrl = useMemo(() => {
     const configured = process.env.REACT_APP_INVITE_BASE_URL?.trim();
     if (configured) {
@@ -351,21 +355,45 @@ export default function App() {
   const joinViaInviteLink = useCallback(
     async (inviteCode: string) => {
       setError(null);
-      const outcome = await joinProjectByCode(inviteCode);
-      if (outcome.status === "already_member") {
-        setJoinFeedback({
-          tone: "info",
-          message: "You are already in this project.",
-        });
-      } else {
-        setJoinFeedback({
-          tone: "success",
-          message: `Joined project: ${outcome.projectName}`,
-        });
+      setInviteLinkJoinPendingCount((count) => count + 1);
+      try {
+        const outcome = await joinProjectByCode(inviteCode);
+        if (outcome.status === "already_member") {
+          setJoinFeedback({
+            tone: "info",
+            message: "You are already in this project.",
+          });
+        } else {
+          setJoinFeedback({
+            tone: "success",
+            message: `Joined project: ${outcome.projectName}`,
+          });
+        }
+        navigate("/projects", { replace: true });
+      } finally {
+        setInviteLinkJoinPendingCount((count) => Math.max(0, count - 1));
       }
-      navigate("/projects", { replace: true });
     },
     [joinProjectByCode, navigate]
+  );
+
+  const withInviteBusyOverlay = (content: React.ReactNode) => (
+    <>
+      {content}
+      {inviteLinkBusy ? (
+        <div
+          className={styles.inviteLinkBusyOverlay}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className={styles.inviteLinkBusyCard}>
+            <span className={styles.inviteLinkBusySpinner} aria-hidden="true" />
+            <p>Joining project from invitation link...</p>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 
   const onJoinFeedbackAction = useCallback(() => {
@@ -662,7 +690,7 @@ export default function App() {
   };
 
   if (isAuthChecking) {
-    return (
+    return withInviteBusyOverlay(
       <main
         style={{
           minHeight: "100vh",
@@ -677,7 +705,7 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return (
+    return withInviteBusyOverlay(
       <AuthScreen
         googleClientConfigured={Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID)}
         googleReady={googleReady}
@@ -697,7 +725,7 @@ export default function App() {
   }
 
   if (isExpensesRoute) {
-    return (
+    return withInviteBusyOverlay(
       <ExpensesScreen
         projectId={expenseProjectId}
         viewerId={viewerData?.viewer.id ?? ""}
@@ -708,7 +736,7 @@ export default function App() {
     );
   }
 
-  return (
+  return withInviteBusyOverlay(
     <DashboardScreen
       viewerName={viewerData?.viewer.displayName ?? ""}
       viewerRole={viewerData?.viewer.accountRole ?? "VIEWER"}
