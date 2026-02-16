@@ -6,6 +6,7 @@ import {
 } from "../repositories/expenseRepository";
 import { participantRepository } from "../repositories/participantRepository";
 import { projectRepository } from "../repositories/projectRepository";
+import { expenseAddedTopic, graphqlPubSub } from "../realtime/pubSub";
 import { Currency, GraphQLContext, SplitMode } from "../types";
 import { assertCurrency, roundMoney } from "./domainUtils";
 import { projectService } from "./projectService";
@@ -337,8 +338,7 @@ export const expenseService = {
     const occurredAt =
       normalizeOccurredAt(input.occurredAt) ?? new Date().toISOString();
     const splitMode = input.splitMode ?? "EQUAL";
-
-    return projectRepository.withProjectWriteLock(
+    const createdExpense = await projectRepository.withProjectWriteLock(
       input.projectId,
       async (tx) => {
         const payer = await participantRepository.findByIdInProject(
@@ -395,6 +395,9 @@ export const expenseService = {
         return toExpense(created, participantsById, splitsByExpenseId);
       }
     );
+
+    graphqlPubSub.publish(expenseAddedTopic(input.projectId), createdExpense);
+    return createdExpense;
   },
 
   async updateExpense(

@@ -3,7 +3,9 @@ import { GraphQLSchema } from "graphql";
 import { AuthChecker, buildSchemaSync } from "type-graphql";
 import { MutationResolver } from "./graphql/resolvers/mutationResolver";
 import { QueryResolver } from "./graphql/resolvers/queryResolver";
+import { SubscriptionResolver } from "./graphql/resolvers/subscriptionResolver";
 import { appError } from "./lib/errors";
+import { graphqlPubSub } from "./realtime/pubSub";
 import { GraphQLContext } from "./types";
 
 const authChecker: AuthChecker<GraphQLContext> = ({ context }) => {
@@ -21,8 +23,9 @@ export const getSchema = (): GraphQLSchema => {
   }
 
   cachedSchema = buildSchemaSync({
-    resolvers: [QueryResolver, MutationResolver],
+    resolvers: [QueryResolver, MutationResolver, SubscriptionResolver],
     authChecker,
+    pubSub: graphqlPubSub,
     validate: false,
   });
 

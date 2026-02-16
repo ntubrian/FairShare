@@ -4,6 +4,9 @@ import { ApolloLink } from "@apollo/client/link";
 import { SetContextLink } from "@apollo/client/link/context";
 import { ErrorLink } from "@apollo/client/link/error";
 import { HttpLink } from "@apollo/client/link/http";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { getMainDefinition } from "@apollo/client/utilities";
+import { createClient } from "graphql-ws";
 
 const GOOGLE_TOKEN_KEY = "fairshare.googleIdToken";
 const DEV_USER_ID_KEY = "fairshare.devUserId";
@@ -37,6 +40,26 @@ const resolveGraphQLEndpoint = () => {
   }
 
   return "http://localhost:4000/graphql";
+};
+
+const resolveGraphQLWsEndpoint = (httpEndpoint: string) => {
+  try {
+    const base =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "http://localhost:3000";
+    const url = new URL(httpEndpoint, base);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return url.toString();
+  } catch {
+    if (httpEndpoint.startsWith("https://")) {
+      return `wss://${httpEndpoint.slice("https://".length)}`;
+    }
+    if (httpEndpoint.startsWith("http://")) {
+      return `ws://${httpEndpoint.slice("http://".length)}`;
+    }
+    return "ws://localhost:4000/graphql";
+  }
 };
 
 const readStorage = (key: string) => {
@@ -138,6 +161,19 @@ export const authStorage = {
 };
 
 export const graphqlEndpoint = resolveGraphQLEndpoint();
+export const graphqlWsEndpoint = resolveGraphQLWsEndpoint(graphqlEndpoint);
+
+const readAuthHeaders = () => {
+  const runtimeToken = readRuntimeGoogleIdToken();
+  const runtimeDevUserId = readRuntimeDevUserId();
+  const googleToken = runtimeToken || readConfiguredGoogleIdToken();
+  const devUserId = runtimeDevUserId || readConfiguredDevUserId();
+
+  return {
+    ...(googleToken ? { authorization: `Bearer ${googleToken}` } : {}),
+    ...(devUserId ? { "x-user-id": devUserId } : {}),
+  };
+};
 
 const httpLink = new HttpLink({
   uri: graphqlEndpoint,
@@ -158,17 +194,12 @@ const toHeaderRecord = (headers: unknown): Record<string, string> => {
 };
 
 const authLink = new SetContextLink((prevContext) => {
-  const runtimeToken = readRuntimeGoogleIdToken();
-  const runtimeDevUserId = readRuntimeDevUserId();
-  const googleToken = runtimeToken || readConfiguredGoogleIdToken();
-  const devUserId = runtimeDevUserId || readConfiguredDevUserId();
   const headers = toHeaderRecord(prevContext.headers);
 
   return {
     headers: {
       ...headers,
-      ...(googleToken ? { authorization: `Bearer ${googleToken}` } : {}),
-      ...(devUserId ? { "x-user-id": devUserId } : {}),
+      ...readAuthHeaders(),
     },
   };
 });
@@ -199,7 +230,35 @@ const errorLink = new ErrorLink(({ error }) => {
   }
 });
 
+const canUseWebSocket =
+  typeof window !== "undefined" && typeof window.WebSocket !== "undefined";
+
+const wsLink = canUseWebSocket
+  ? new GraphQLWsLink(
+      createClient({
+        url: graphqlWsEndpoint,
+        lazy: true,
+        retryAttempts: Infinity,
+        connectionParams: () => readAuthHeaders(),
+      })
+    )
+  : null;
+
+const transportLink = wsLink
+  ? ApolloLink.split(
+      ({ query }) => {
+        const definition = getMainDefinition(query);
+        return (
+          definition.kind === "OperationDefinition" &&
+          definition.operation === "subscription"
+        );
+      },
+      wsLink,
+      httpLink
+    )
+  : httpLink;
+
 export const apolloClient = new ApolloClient({
   cache: new InMemoryCache(),
-  link: ApolloLink.from([errorLink, authLink, httpLink]),
+  link: ApolloLink.from([errorLink, authLink, transportLink]),
 });

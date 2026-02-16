@@ -63,6 +63,15 @@
   font-weight: 700;
 }
 
+.realtimeNotice {
+  border: 1px solid #b8d2f7;
+  border-radius: var(--radius-md);
+  background: #dbeafe;
+  color: #1f4b99;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
 .filterRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -78,6 +87,136 @@
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 700;
+}
+
+.settlementCard {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.settlementSummaryCard {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #fcfcfb;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.sectionLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settlementSummaryCard h2 {
+  font-size: 28px;
+  margin-top: 4px;
+}
+
+.sectionMeta {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.currencyBadge {
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-card-alt);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rateCard {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #fcfcfb;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.rateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rateHeader strong {
+  font-size: 16px;
+}
+
+.rateSourceBadge {
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rateSourceAgreed {
+  background: #edf6db;
+  color: #255c3c;
+}
+
+.rateSourceLive {
+  background: #eef3ff;
+  color: #1d4ed8;
+}
+
+.rateMetaLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.rateMetaValue {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rateErrorRow {
+  margin-top: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid #f6c7c7;
+  background: #fef2f2;
+  color: #b42318;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.retryButton {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d6d3c9;
+  background: #f4f1e8;
+  color: #374151;
+}
+
+.settlementHint {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.calculateButton {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 16px;
 }
 
 .summaryCard {
@@ -276,6 +415,12 @@
   font-size: 26px;
 }
 
+.settlementProjectLabel {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
 .closeButton {
   min-width: 36px;
   min-height: 36px;
@@ -363,6 +508,74 @@
   width: 110px;
 }
 
+.settlementModal {
+  width: min(720px, 100%);
+}
+
+.settlementMetaRow {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #f8faf5;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.settlementInstructionList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.settlementInstructionItem {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-alt);
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.emptySettlementState {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #f6fbf6;
+  padding: 16px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+}
+
+.emptySettlementState h4 {
+  font-size: 28px;
+}
+
+.emptySettlementState p {
+  color: var(--text-secondary);
+}
+
+.settlementActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.secondaryButton {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--brand-primary);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #f5f8ef;
+}
+
 .errorBanner {
   border: 1px solid #f7b3b3;
   border-radius: var(--radius-md);
@@ -378,6 +591,15 @@
 @media (max-width: 760px) {
   .headerTitle h1 {
     font-size: 22px;
+  }
+
+  .settlementSummaryCard h2 {
+    font-size: 22px;
+  }
+
+  .settlementMetaRow {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .filterRow {

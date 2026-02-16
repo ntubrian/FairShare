@@ -40,6 +40,7 @@ query ProjectDetail($projectId: ID!) {
     id
     name
     targetCurrency
+    agreedRateFirst
     status
     members {
       userId
@@ -87,6 +88,7 @@ query ProjectExpenses(
     occurredAt
     createdAt
     updatedAt
+    deletedAt
     splits {
       participantId
       amount
@@ -117,6 +119,84 @@ query DebitCreditSummary($projectId: ID!, $includeDeleted: Boolean = false) {
       debitCount
       creditCount
       netAmount
+    }
+  }
+}
+
+query CalculateSettlement($projectId: ID!, $includeDeleted: Boolean = false) {
+  calculateSettlement(projectId: $projectId, includeDeleted: $includeDeleted) {
+    projectId
+    targetCurrency
+    generatedAt
+    rateSource
+    instructions {
+      fromParticipantId
+      toParticipantId
+      amount
+      currency
+      fromParticipant {
+        id
+        name
+      }
+      toParticipant {
+        id
+        name
+      }
+    }
+    rateSnapshot {
+      baseCurrency
+      source
+      fetchedAt
+      rates {
+        currency
+        rate
+      }
+    }
+  }
+}
+
+query PdfExportPreview($projectId: ID!, $includeSoftDeleted: Boolean = false) {
+  pdfExportPreview(
+    projectId: $projectId
+    includeSoftDeleted: $includeSoftDeleted
+  ) {
+    projectName
+    exportTime
+    targetCurrency
+    rateSnapshotIncluded
+    settlementIncluded
+    expenseDetailsIncluded
+    includeSoftDeleted
+    instructionCount
+    expenseCount
+  }
+}
+
+subscription ExpenseAdded($projectId: ID!) {
+  expenseAdded(projectId: $projectId) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
     }
   }
 }
@@ -178,6 +258,7 @@ mutation CreateExpense(
     occurredAt
     createdAt
     updatedAt
+    deletedAt
     splits {
       participantId
       amount
