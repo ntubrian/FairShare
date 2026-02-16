@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { JoinProjectModal } from "./components/JoinProjectModal";
 import { ProjectActionSheet } from "./components/ProjectActionSheet";
@@ -36,6 +36,7 @@ type DashboardScreenProps = {
     input: ProjectFormInput & { projectId: string }
   ) => Promise<void>;
   onJoinProject: (inviteCode: string) => Promise<void>;
+  onOpenProject: (projectId: string) => void;
   onArchiveProject: (projectId: string) => Promise<void>;
   onDeleteProject: (projectId: string) => Promise<void>;
   onLeaveProject: (projectId: string) => Promise<void>;
@@ -90,6 +91,7 @@ export const DashboardScreen = ({
   onCreateProject,
   onUpdateProject,
   onJoinProject,
+  onOpenProject,
   onArchiveProject,
   onDeleteProject,
   onLeaveProject,
@@ -309,6 +311,9 @@ export const DashboardScreen = ({
               key={project.id}
               project={project}
               onOpenActions={setSheetProject}
+              onOpenProject={(selectedProject) =>
+                onOpenProject(selectedProject.id)
+              }
             />
           ))}
         </div>

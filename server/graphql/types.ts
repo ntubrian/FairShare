@@ -293,6 +293,51 @@ export class SettlementResult {
 }
 
 @ObjectType()
+export class ParticipantDebitCredit {
+  @Field(() => ID)
+  participantId!: string;
+
+  @Field(() => Participant)
+  participant!: Participant;
+
+  @Field(() => Float)
+  debitAmount!: number;
+
+  @Field(() => Float)
+  creditAmount!: number;
+
+  @Field(() => Int)
+  debitCount!: number;
+
+  @Field(() => Int)
+  creditCount!: number;
+
+  @Field(() => Float)
+  netAmount!: number;
+}
+
+@ObjectType()
+export class ProjectDebitCreditSummary {
+  @Field(() => ID)
+  projectId!: string;
+
+  @Field(() => CurrencyEnum)
+  currency!: Currency;
+
+  @Field(() => String)
+  generatedAt!: string;
+
+  @Field(() => Int)
+  totalDebitCount!: number;
+
+  @Field(() => Int)
+  totalCreditCount!: number;
+
+  @Field(() => [ParticipantDebitCredit])
+  rows!: ParticipantDebitCredit[];
+}
+
+@ObjectType()
 export class PdfChecklist {
   @Field(() => String)
   projectName!: string;

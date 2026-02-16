@@ -1,3 +1,4 @@
+import React from "react";
 import type { DashboardProject } from "../types";
 import { formatRelativeTime } from "../utils";
 import styles from "../Dashboard.module.scss";
@@ -5,19 +6,28 @@ import styles from "../Dashboard.module.scss";
 type ProjectCardProps = {
   project: DashboardProject;
   onOpenActions: (project: DashboardProject) => void;
+  onOpenProject: (project: DashboardProject) => void;
 };
 
-export const ProjectCard = ({ project, onOpenActions }: ProjectCardProps) => (
+export const ProjectCard = ({
+  project,
+  onOpenActions,
+  onOpenProject,
+}: ProjectCardProps) => (
   <article
-    className={`${styles.projectCard} ${
+    className={`${styles.projectCard} ${styles.projectCardClickable} ${
       project.status === "ARCHIVED" ? styles.projectCardArchived : ""
     }`}
+    onClick={() => onOpenProject(project)}
   >
     <button
       type="button"
       className={styles.projectCardMenu}
       aria-label={`Open actions for ${project.name}`}
-      onClick={() => onOpenActions(project)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpenActions(project);
+      }}
     >
       •••
     </button>

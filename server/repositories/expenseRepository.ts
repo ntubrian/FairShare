@@ -15,6 +15,9 @@ export type ExpenseRow = {
   deleted_at: string | null;
 };
 
+type DbExecutor = ReturnType<typeof getDb>;
+const resolveDb = (executor?: DbExecutor) => executor ?? getDb();
+
 export const expenseRepository = {
   async listByProject(
     projectId: string,
@@ -22,9 +25,10 @@ export const expenseRepository = {
     options?: {
       page?: number;
       pageSize?: number;
-    }
+    },
+    executor?: DbExecutor
   ) {
-    const db = getDb();
+    const db = resolveDb(executor);
     const page =
       options?.page && options.page > 0 ? Math.floor(options.page) : 1;
     const pageSize =
@@ -58,8 +62,8 @@ export const expenseRepository = {
     return baseQuery.limit(pageSize).offset((page - 1) * pageSize);
   },
 
-  async findById(expenseId: string, projectId: string) {
-    const db = getDb();
+  async findById(expenseId: string, projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({
         id: expense.id,
@@ -77,15 +81,18 @@ export const expenseRepository = {
     return row ?? null;
   },
 
-  async add(input: {
-    projectId: string;
-    payerParticipantId: string;
-    amount: number;
-    currency: Currency;
-    description: string | null;
-    createdBy: string;
-  }) {
-    const db = getDb();
+  async add(
+    input: {
+      projectId: string;
+      payerParticipantId: string;
+      amount: number;
+      currency: Currency;
+      description: string | null;
+      createdBy: string;
+    },
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const [row] = await db
       .insert(expense)
       .values({
@@ -118,9 +125,10 @@ export const expenseRepository = {
       amount?: number;
       currency?: Currency;
       description?: string | null;
-    }
+    },
+    executor?: DbExecutor
   ) {
-    const db = getDb();
+    const db = resolveDb(executor);
     const setValues: Partial<{
       payerParticipantId: string;
       amount: string;
@@ -163,8 +171,12 @@ export const expenseRepository = {
     return row ?? null;
   },
 
-  async softDelete(projectId: string, expenseId: string) {
-    const db = getDb();
+  async softDelete(
+    projectId: string,
+    expenseId: string,
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const [row] = await db
       .update(expense)
       .set({ deletedAt: sql`NOW()` })
@@ -183,8 +195,8 @@ export const expenseRepository = {
     return row ?? null;
   },
 
-  async restore(projectId: string, expenseId: string) {
-    const db = getDb();
+  async restore(projectId: string, expenseId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .update(expense)
       .set({ deletedAt: null })

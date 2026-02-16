@@ -1,4 +1,4 @@
-import {
+import React, {
   FormEvent,
   useCallback,
   useEffect,
@@ -15,6 +15,7 @@ import type {
   ProjectFormInput,
 } from "./features/dashboard/types";
 import { resolveInviteCode } from "./features/dashboard/utils";
+import { ExpensesScreen } from "./features/expenses/ExpensesScreen";
 import { authStorage, graphqlEndpoint } from "./graphql/apolloClient";
 import {
   ArchiveProjectDocument,
@@ -125,6 +126,22 @@ export default function App() {
 
   const isAuthenticated = authHint && Boolean(viewerData?.viewer);
   const isAuthRoute = location.pathname === "/auth";
+  const expenseRouteMatch = useMemo(
+    () => location.pathname.match(/^\/projects\/([^/]+)\/expenses\/?$/),
+    [location.pathname]
+  );
+  const expenseProjectId = useMemo(() => {
+    const raw = expenseRouteMatch?.[1];
+    if (!raw) {
+      return "";
+    }
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }, [expenseRouteMatch]);
+  const isExpensesRoute = Boolean(expenseProjectId);
   const inviteCodeFromLink = useMemo(
     () => getInviteCodeFromPath(location.pathname, location.search),
     [location.pathname, location.search]
@@ -184,7 +201,7 @@ export default function App() {
     [apolloClient]
   );
 
-  const { googleReady } = useGoogleSignIn({
+  const { googleReady, googleError } = useGoogleSignIn({
     clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
     targetRef: googleButtonRef,
     enabled: !isAuthenticated,
@@ -664,6 +681,7 @@ export default function App() {
       <AuthScreen
         googleClientConfigured={Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID)}
         googleReady={googleReady}
+        googleError={googleError}
         googleButtonRef={googleButtonRef}
         canInstall={canInstall}
         onInstall={onInstall}
@@ -674,6 +692,17 @@ export default function App() {
         viewerLoading={viewerLoading || initializing}
         viewerError={viewerError ? toFriendlyError(viewerError) : undefined}
         error={error ?? undefined}
+      />
+    );
+  }
+
+  if (isExpensesRoute) {
+    return (
+      <ExpensesScreen
+        projectId={expenseProjectId}
+        viewerName={viewerData?.viewer.displayName ?? ""}
+        onBack={() => navigate("/projects")}
+        onLogout={onLogout}
       />
     );
   }
@@ -701,6 +730,9 @@ export default function App() {
       onCreateProject={onCreateProject}
       onUpdateProject={onUpdateProject}
       onJoinProject={onJoinProject}
+      onOpenProject={(projectId) =>
+        navigate(`/projects/${encodeURIComponent(projectId)}/expenses`)
+      }
       onArchiveProject={onArchiveProject}
       onDeleteProject={onDeleteProject}
       onLeaveProject={onLeaveProject}

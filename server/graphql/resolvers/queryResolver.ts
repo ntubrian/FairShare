@@ -14,6 +14,7 @@ import {
   PdfChecklist,
   ProjectPage,
   Project,
+  ProjectDebitCreditSummary,
   RateSnapshot,
   SettlementResult,
   User,
@@ -131,6 +132,21 @@ export class QueryResolver {
     @Ctx() context: GraphQLContext
   ) {
     return settlementService.calculate(
+      projectId,
+      Boolean(includeDeleted),
+      context
+    );
+  }
+
+  @Authorized()
+  @Query(() => ProjectDebitCreditSummary)
+  debitCreditSummary(
+    @Arg("projectId", () => ID) projectId: string,
+    @Arg("includeDeleted", () => Boolean, { defaultValue: false })
+    includeDeleted: boolean,
+    @Ctx() context: GraphQLContext
+  ) {
+    return settlementService.debitCreditSummary(
       projectId,
       Boolean(includeDeleted),
       context

@@ -123,26 +123,37 @@ export const expenseService = {
     await projectService.ensureEditable(input.projectId, context);
     requirePositiveAmount(input.amount);
     assertCurrency(input.currency);
-
-    const payer = await participantRepository.findByIdInProject(
+    return projectRepository.withProjectWriteLock(
       input.projectId,
-      input.payerId
-    );
-    if (!payer) {
-      throw appError("Payer must exist in participant list.", "BAD_USER_INPUT");
-    }
+      async (tx) => {
+        const payer = await participantRepository.findByIdInProject(
+          input.projectId,
+          input.payerId,
+          tx
+        );
+        if (!payer) {
+          throw appError(
+            "Payer must exist in participant list.",
+            "BAD_USER_INPUT"
+          );
+        }
 
-    const created = await expenseRepository.add({
-      projectId: input.projectId,
-      payerParticipantId: input.payerId,
-      amount: roundMoney(input.amount),
-      currency: input.currency,
-      description: normalizeDescription(input.description) ?? null,
-      createdBy: viewer.id,
-    });
-    await projectRepository.touchProject(input.projectId);
-    const mappedPayer = toParticipant(payer);
-    return toExpense(created, new Map([[mappedPayer.id, mappedPayer]]));
+        const created = await expenseRepository.add(
+          {
+            projectId: input.projectId,
+            payerParticipantId: input.payerId,
+            amount: roundMoney(input.amount),
+            currency: input.currency,
+            description: normalizeDescription(input.description) ?? null,
+            createdBy: viewer.id,
+          },
+          tx
+        );
+        await projectRepository.touchProject(input.projectId, tx);
+        const mappedPayer = toParticipant(payer);
+        return toExpense(created, new Map([[mappedPayer.id, mappedPayer]]));
+      }
+    );
   },
 
   async updateExpense(
@@ -157,65 +168,75 @@ export const expenseService = {
     context: GraphQLContext
   ) {
     await projectService.ensureEditable(input.projectId, context);
-    const current = await expenseRepository.findById(
-      input.expenseId,
-      input.projectId
-    );
-    if (!current) {
-      throw appError("Expense not found.", "NOT_FOUND");
-    }
-
-    let payerParticipantId: string | undefined;
-    if (typeof input.payerId === "string") {
-      const payer = await participantRepository.findByIdInProject(
-        input.projectId,
-        input.payerId
-      );
-      if (!payer) {
-        throw appError(
-          "Payer must exist in participant list.",
-          "BAD_USER_INPUT"
-        );
-      }
-      payerParticipantId = input.payerId;
-    }
-
-    let amount: number | undefined;
-    if (typeof input.amount === "number") {
-      requirePositiveAmount(input.amount);
-      amount = roundMoney(input.amount);
-    }
-
-    let currency: Currency | undefined;
-    if (typeof input.currency === "string") {
-      currency = assertCurrency(input.currency);
-    }
-
-    const updated = await expenseRepository.update(
+    return projectRepository.withProjectWriteLock(
       input.projectId,
-      input.expenseId,
-      {
-        payerParticipantId,
-        amount,
-        currency,
-        description: normalizeDescription(input.description),
+      async (tx) => {
+        const current = await expenseRepository.findById(
+          input.expenseId,
+          input.projectId,
+          tx
+        );
+        if (!current) {
+          throw appError("Expense not found.", "NOT_FOUND");
+        }
+
+        let payerParticipantId: string | undefined;
+        if (typeof input.payerId === "string") {
+          const payer = await participantRepository.findByIdInProject(
+            input.projectId,
+            input.payerId,
+            tx
+          );
+          if (!payer) {
+            throw appError(
+              "Payer must exist in participant list.",
+              "BAD_USER_INPUT"
+            );
+          }
+          payerParticipantId = input.payerId;
+        }
+
+        let amount: number | undefined;
+        if (typeof input.amount === "number") {
+          requirePositiveAmount(input.amount);
+          amount = roundMoney(input.amount);
+        }
+
+        let currency: Currency | undefined;
+        if (typeof input.currency === "string") {
+          currency = assertCurrency(input.currency);
+        }
+
+        const updated = await expenseRepository.update(
+          input.projectId,
+          input.expenseId,
+          {
+            payerParticipantId,
+            amount,
+            currency,
+            description: normalizeDescription(input.description),
+          },
+          tx
+        );
+        if (!updated) {
+          throw appError("Expense not found.", "NOT_FOUND");
+        }
+
+        await projectRepository.touchProject(input.projectId, tx);
+        const participants = await participantRepository.listByProject(
+          input.projectId,
+          undefined,
+          tx
+        );
+        const participantsById = new Map(
+          participants.map((participant) => {
+            const mapped = toParticipant(participant);
+            return [mapped.id, mapped] as const;
+          })
+        );
+        return toExpense(updated, participantsById);
       }
     );
-    if (!updated) {
-      throw appError("Expense not found.", "NOT_FOUND");
-    }
-
-    await projectRepository.touchProject(input.projectId);
-    const participants = await participantRepository.listByProject(
-      input.projectId
-    );
-    const participantsById = new Map(
-      participants.map((participant) => {
-        const mapped = toParticipant(participant);
-        return [mapped.id, mapped] as const;
-      })
-    );
-    return toExpense(updated, participantsById);
   },
 
   async softDeleteExpense(
@@ -224,19 +245,29 @@ export const expenseService = {
     context: GraphQLContext
   ) {
     await projectService.ensureEditable(projectId, context);
-    const updated = await expenseRepository.softDelete(projectId, expenseId);
-    if (!updated) {
-      throw appError("Expense not found.", "NOT_FOUND");
-    }
-    await projectRepository.touchProject(projectId);
-    const participants = await participantRepository.listByProject(projectId);
-    const participantsById = new Map(
-      participants.map((participant) => {
-        const mapped = toParticipant(participant);
-        return [mapped.id, mapped] as const;
-      })
-    );
-    return toExpense(updated, participantsById);
+    return projectRepository.withProjectWriteLock(projectId, async (tx) => {
+      const updated = await expenseRepository.softDelete(
+        projectId,
+        expenseId,
+        tx
+      );
+      if (!updated) {
+        throw appError("Expense not found.", "NOT_FOUND");
+      }
+      await projectRepository.touchProject(projectId, tx);
+      const participants = await participantRepository.listByProject(
+        projectId,
+        undefined,
+        tx
+      );
+      const participantsById = new Map(
+        participants.map((participant) => {
+          const mapped = toParticipant(participant);
+          return [mapped.id, mapped] as const;
+        })
+      );
+      return toExpense(updated, participantsById);
+    });
   },
 
   async restoreExpense(
@@ -245,18 +276,24 @@ export const expenseService = {
     context: GraphQLContext
   ) {
     await projectService.ensureEditable(projectId, context);
-    const updated = await expenseRepository.restore(projectId, expenseId);
-    if (!updated) {
-      throw appError("Expense not found.", "NOT_FOUND");
-    }
-    await projectRepository.touchProject(projectId);
-    const participants = await participantRepository.listByProject(projectId);
-    const participantsById = new Map(
-      participants.map((participant) => {
-        const mapped = toParticipant(participant);
-        return [mapped.id, mapped] as const;
-      })
-    );
-    return toExpense(updated, participantsById);
+    return projectRepository.withProjectWriteLock(projectId, async (tx) => {
+      const updated = await expenseRepository.restore(projectId, expenseId, tx);
+      if (!updated) {
+        throw appError("Expense not found.", "NOT_FOUND");
+      }
+      await projectRepository.touchProject(projectId, tx);
+      const participants = await participantRepository.listByProject(
+        projectId,
+        undefined,
+        tx
+      );
+      const participantsById = new Map(
+        participants.map((participant) => {
+          const mapped = toParticipant(participant);
+          return [mapped.id, mapped] as const;
+        })
+      );
+      return toExpense(updated, participantsById);
+    });
   },
 };

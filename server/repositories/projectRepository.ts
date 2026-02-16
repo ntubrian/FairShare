@@ -56,7 +56,26 @@ const projectSelect = {
   updated_at: project.updatedAt,
 };
 
+type DbExecutor = ReturnType<typeof getDb>;
+const resolveDb = (executor?: DbExecutor) => executor ?? getDb();
+
 export const projectRepository = {
+  async withProjectWriteLock<T>(
+    projectId: string,
+    runner: (tx: DbExecutor) => Promise<T>
+  ) {
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const lockResult = await tx.execute(
+        sql`select ${project.id} from ${project} where ${project.id} = ${projectId} for update`
+      );
+      if (!lockResult.rowCount) {
+        throw appError("Project not found.", "NOT_FOUND");
+      }
+      return runner(tx as DbExecutor);
+    });
+  },
+
   async listForUser(userId: string) {
     const db = getDb();
     return db
@@ -67,8 +86,8 @@ export const projectRepository = {
       .orderBy(desc(project.updatedAt));
   },
 
-  async findById(projectId: string) {
-    const db = getDb();
+  async findById(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select(projectSelect)
       .from(project)
@@ -76,8 +95,8 @@ export const projectRepository = {
     return row ?? null;
   },
 
-  async findByInviteCode(inviteCode: string) {
-    const db = getDb();
+  async findByInviteCode(inviteCode: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select(projectSelect)
       .from(project)
@@ -191,9 +210,10 @@ export const projectRepository = {
       name?: string;
       targetCurrency?: Currency;
       agreedRateFirst?: boolean;
-    }
+    },
+    executor?: DbExecutor
   ) {
-    const db = getDb();
+    const db = resolveDb(executor);
     const setValues: Partial<{
       name: string;
       targetCurrency: Currency;
@@ -222,8 +242,12 @@ export const projectRepository = {
     return row ?? null;
   },
 
-  async setStatus(projectId: string, status: ProjectStatus) {
-    const db = getDb();
+  async setStatus(
+    projectId: string,
+    status: ProjectStatus,
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const [row] = await db
       .update(project)
       .set({ status })
@@ -232,8 +256,8 @@ export const projectRepository = {
     return row ?? null;
   },
 
-  async deleteById(projectId: string) {
-    const db = getDb();
+  async deleteById(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const rows = await db
       .delete(project)
       .where(eq(project.id, projectId))
@@ -241,8 +265,8 @@ export const projectRepository = {
     return rows.length > 0;
   },
 
-  async findMember(projectId: string, userId: string) {
-    const db = getDb();
+  async findMember(projectId: string, userId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({
         user_id: projectMember.userId,
@@ -258,8 +282,8 @@ export const projectRepository = {
     return row ?? null;
   },
 
-  async listMembers(projectId: string) {
-    const db = getDb();
+  async listMembers(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     return db
       .select({
         user_id: projectMember.userId,
@@ -279,9 +303,10 @@ export const projectRepository = {
   async addMember(
     projectId: string,
     userId: string,
-    role: MemberRole = "VIEWER"
+    role: MemberRole = "VIEWER",
+    executor?: DbExecutor
   ) {
-    const db = getDb();
+    const db = resolveDb(executor);
     const rows = await db
       .insert(projectMember)
       .values({
@@ -291,19 +316,11 @@ export const projectRepository = {
       })
       .onConflictDoNothing()
       .returning({ user_id: projectMember.userId });
-    const inserted = rows.length > 0;
-    if (inserted) {
-      await authRepository.syncProjectProfileAssignment(
-        userId,
-        projectId,
-        role
-      );
-    }
-    return inserted;
+    return rows.length > 0;
   },
 
-  async removeMember(projectId: string, userId: string) {
-    const db = getDb();
+  async removeMember(projectId: string, userId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const rows = await db
       .delete(projectMember)
       .where(
@@ -313,15 +330,16 @@ export const projectRepository = {
         )
       )
       .returning({ user_id: projectMember.userId });
-    const removed = rows.length > 0;
-    if (removed) {
-      await authRepository.clearProjectProfileAssignments(userId, projectId);
-    }
-    return removed;
+    return rows.length > 0;
   },
 
-  async setMemberRole(projectId: string, userId: string, role: MemberRole) {
-    const db = getDb();
+  async setMemberRole(
+    projectId: string,
+    userId: string,
+    role: MemberRole,
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const rows = await db
       .update(projectMember)
       .set({ role })
@@ -332,19 +350,11 @@ export const projectRepository = {
         )
       )
       .returning({ user_id: projectMember.userId });
-    const updated = rows.length > 0;
-    if (updated) {
-      await authRepository.syncProjectProfileAssignment(
-        userId,
-        projectId,
-        role
-      );
-    }
-    return updated;
+    return rows.length > 0;
   },
 
-  async countOwners(projectId: string) {
-    const db = getDb();
+  async countOwners(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({ count: count() })
       .from(projectMember)
@@ -357,8 +367,8 @@ export const projectRepository = {
     return Number(row?.count ?? 0);
   },
 
-  async touchProject(projectId: string) {
-    const db = getDb();
+  async touchProject(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     await db
       .update(project)
       .set({ updatedAt: sql`NOW()` })

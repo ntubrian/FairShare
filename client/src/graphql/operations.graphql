@@ -35,6 +35,77 @@ query ProjectSummaries($page: Int!, $pageSize: Int!, $search: String) {
   }
 }
 
+query ProjectDetail($projectId: ID!) {
+  project(id: $projectId) {
+    id
+    name
+    targetCurrency
+    status
+  }
+}
+
+query ProjectParticipants(
+  $projectId: ID!
+  $page: Int! = 1
+  $pageSize: Int! = 100
+) {
+  participants(projectId: $projectId, page: $page, pageSize: $pageSize) {
+    id
+    projectId
+    name
+    createdAt
+  }
+}
+
+query ProjectExpenses(
+  $projectId: ID!
+  $page: Int! = 1
+  $pageSize: Int! = 200
+  $includeDeleted: Boolean = false
+) {
+  expenses(
+    projectId: $projectId
+    page: $page
+    pageSize: $pageSize
+    includeDeleted: $includeDeleted
+  ) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    description
+    createdAt
+    updatedAt
+  }
+}
+
+query DebitCreditSummary($projectId: ID!, $includeDeleted: Boolean = false) {
+  debitCreditSummary(projectId: $projectId, includeDeleted: $includeDeleted) {
+    projectId
+    currency
+    generatedAt
+    totalDebitCount
+    totalCreditCount
+    rows {
+      participantId
+      participant {
+        id
+        name
+      }
+      debitAmount
+      creditAmount
+      debitCount
+      creditCount
+      netAmount
+    }
+  }
+}
+
 mutation CreateProject(
   $name: String!
   $targetCurrency: String
@@ -53,6 +124,35 @@ mutation CreateProject(
     inviteCode
     inviteLink
     memberCount
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateExpense(
+  $projectId: ID!
+  $payerId: ID!
+  $amount: Float!
+  $currency: Currency!
+  $description: String
+) {
+  createExpense(
+    projectId: $projectId
+    payerId: $payerId
+    amount: $amount
+    currency: $currency
+    description: $description
+  ) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    description
     createdAt
     updatedAt
   }

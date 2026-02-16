@@ -35,6 +35,25 @@ type GraphQLSettlementResult = {
   };
 };
 
+type GraphQLParticipantDebitCredit = {
+  participantId: string;
+  participant: GraphQLParticipant;
+  debitAmount: number;
+  creditAmount: number;
+  debitCount: number;
+  creditCount: number;
+  netAmount: number;
+};
+
+type GraphQLProjectDebitCreditSummary = {
+  projectId: string;
+  currency: Currency;
+  generatedAt: string;
+  totalDebitCount: number;
+  totalCreditCount: number;
+  rows: GraphQLParticipantDebitCredit[];
+};
+
 const toParticipant = (row: {
   id: string;
   project_id: string;
@@ -316,6 +335,73 @@ export const settlementService = {
       includeSoftDeleted,
       instructionCount: settlement.instructions.length,
       expenseCount: expenses.length,
+    };
+  },
+
+  async debitCreditSummary(
+    projectId: string,
+    includeDeleted: boolean,
+    context: GraphQLContext
+  ): Promise<GraphQLProjectDebitCreditSummary> {
+    const settlement = await this.calculate(projectId, includeDeleted, context);
+    const participantRows = await participantRepository.listByProject(
+      projectId
+    );
+    const participants = participantRows.map(toParticipant);
+    const totalsByParticipantId = new Map<
+      string,
+      GraphQLParticipantDebitCredit
+    >(
+      participants.map((participant) => [
+        participant.id,
+        {
+          participantId: participant.id,
+          participant,
+          debitAmount: 0,
+          creditAmount: 0,
+          debitCount: 0,
+          creditCount: 0,
+          netAmount: 0,
+        },
+      ])
+    );
+
+    for (const instruction of settlement.instructions) {
+      const debtor = totalsByParticipantId.get(instruction.fromParticipantId);
+      if (debtor) {
+        debtor.debitAmount = roundMoney(
+          debtor.debitAmount + instruction.amount
+        );
+        debtor.debitCount += 1;
+      }
+      const creditor = totalsByParticipantId.get(instruction.toParticipantId);
+      if (creditor) {
+        creditor.creditAmount = roundMoney(
+          creditor.creditAmount + instruction.amount
+        );
+        creditor.creditCount += 1;
+      }
+    }
+
+    const rows = Array.from(totalsByParticipantId.values())
+      .map((row) => ({
+        ...row,
+        netAmount: roundMoney(row.creditAmount - row.debitAmount),
+      }))
+      .sort((a, b) => {
+        if (a.netAmount !== b.netAmount) {
+          return b.netAmount - a.netAmount;
+        }
+        return a.participant.name.localeCompare(b.participant.name);
+      });
+
+    return {
+      projectId,
+      currency: settlement.targetCurrency,
+      generatedAt: settlement.generatedAt,
+      totalDebitCount: settlement.instructions.length,
+      totalCreditCount: settlement.instructions.length,
+      rows,
     };
   },
 };

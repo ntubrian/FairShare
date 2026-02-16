@@ -16,6 +16,7 @@ import { participantRepository } from "../repositories/participantRepository";
 import { expenseRepository } from "../repositories/expenseRepository";
 import { rateRepository } from "../repositories/rateRepository";
 import { userRepository } from "../repositories/userRepository";
+import { authRepository } from "../repositories/authRepository";
 import { AuthUser, Currency, GraphQLContext, MemberRole } from "../types";
 import { assertCurrency } from "./domainUtils";
 
@@ -437,20 +438,28 @@ export const projectService = {
     context: GraphQLContext
   ) {
     await this.ensureEditable(input.projectId, context);
-    const updated = await projectRepository.updateProject(input.projectId, {
-      name:
-        typeof input.name === "string"
-          ? trimAndRequire(input.name, "Project name")
-          : undefined,
-      targetCurrency:
-        typeof input.targetCurrency === "string"
-          ? assertCurrency(input.targetCurrency)
-          : undefined,
-      agreedRateFirst:
-        typeof input.agreedRateFirst === "boolean"
-          ? input.agreedRateFirst
-          : undefined,
-    });
+    const updated = await projectRepository.withProjectWriteLock(
+      input.projectId,
+      (tx) =>
+        projectRepository.updateProject(
+          input.projectId,
+          {
+            name:
+              typeof input.name === "string"
+                ? trimAndRequire(input.name, "Project name")
+                : undefined,
+            targetCurrency:
+              typeof input.targetCurrency === "string"
+                ? assertCurrency(input.targetCurrency)
+                : undefined,
+            agreedRateFirst:
+              typeof input.agreedRateFirst === "boolean"
+                ? input.agreedRateFirst
+                : undefined,
+          },
+          tx
+        )
+    );
     if (!updated) {
       throw appError("Project not found.", "NOT_FOUND");
     }
@@ -459,7 +468,10 @@ export const projectService = {
 
   async archiveProject(projectId: string, context: GraphQLContext) {
     await this.ensureOwned(projectId, context, "archive");
-    const updated = await projectRepository.setStatus(projectId, "ARCHIVED");
+    const updated = await projectRepository.withProjectWriteLock(
+      projectId,
+      (tx) => projectRepository.setStatus(projectId, "ARCHIVED", tx)
+    );
     if (!updated) {
       throw appError("Project not found.", "NOT_FOUND");
     }
@@ -468,22 +480,47 @@ export const projectService = {
 
   async deleteProject(projectId: string, context: GraphQLContext) {
     await this.ensureOwned(projectId, context, "delete");
-    return projectRepository.deleteById(projectId);
+    return projectRepository.withProjectWriteLock(projectId, (tx) =>
+      projectRepository.deleteById(projectId, tx)
+    );
   },
 
   async leaveProject(projectId: string, context: GraphQLContext) {
     const viewer = requireViewer(context);
-    await requireProject(projectId);
-    const member = await requireMember(projectId, viewer.id);
-    if (member.role === "OWNER") {
-      throw appError(
-        "Owner cannot leave project. Transfer ownership first.",
-        "FORBIDDEN"
-      );
-    }
-    const removed = await projectRepository.removeMember(projectId, viewer.id);
+    const removed = await projectRepository.withProjectWriteLock(
+      projectId,
+      async (tx) => {
+        const lockedProject = await projectRepository.findById(projectId, tx);
+        if (!lockedProject) {
+          throw appError("Project not found.", "NOT_FOUND");
+        }
+        const member = await projectRepository.findMember(
+          projectId,
+          viewer.id,
+          tx
+        );
+        if (!member) {
+          throw appError("You are not a member of this project.", "FORBIDDEN");
+        }
+        if (member.role === "OWNER") {
+          throw appError(
+            "Owner cannot leave project. Transfer ownership first.",
+            "FORBIDDEN"
+          );
+        }
+        const changed = await projectRepository.removeMember(
+          projectId,
+          viewer.id,
+          tx
+        );
+        if (changed) {
+          await projectRepository.touchProject(projectId, tx);
+        }
+        return changed;
+      }
+    );
     if (removed) {
-      await projectRepository.touchProject(projectId);
+      await authRepository.clearProjectProfileAssignments(viewer.id, projectId);
     }
     return removed;
   },
@@ -495,13 +532,31 @@ export const projectService = {
     if (!project) {
       throw appError("Invalid or expired invite code.", "BAD_USER_INPUT");
     }
-    const added = await projectRepository.addMember(
+    const added = await projectRepository.withProjectWriteLock(
       project.id,
-      viewer.id,
-      "VIEWER"
+      async (tx) => {
+        const lockedProject = await projectRepository.findById(project.id, tx);
+        if (!lockedProject) {
+          throw appError("Project not found.", "NOT_FOUND");
+        }
+        const changed = await projectRepository.addMember(
+          project.id,
+          viewer.id,
+          "VIEWER",
+          tx
+        );
+        if (changed) {
+          await projectRepository.touchProject(project.id, tx);
+        }
+        return changed;
+      }
     );
     if (added) {
-      await projectRepository.touchProject(project.id);
+      await authRepository.syncProjectProfileAssignment(
+        viewer.id,
+        project.id,
+        "VIEWER"
+      );
     }
     const reloaded = await requireProject(project.id);
     return buildProject(reloaded);
@@ -512,32 +567,49 @@ export const projectService = {
     context: GraphQLContext
   ) {
     await this.ensureOwned(input.projectId, context, "setRole");
-    const targetMember = await projectRepository.findMember(
+    const changed = await projectRepository.withProjectWriteLock(
       input.projectId,
-      input.userId
-    );
-    if (!targetMember) {
-      throw appError("Target member not found.", "NOT_FOUND");
-    }
-    if (targetMember.role === "OWNER" && input.role !== "OWNER") {
-      const ownerCount = await projectRepository.countOwners(input.projectId);
-      if (ownerCount <= 1) {
-        throw appError(
-          "Project must keep at least one owner.",
-          "BAD_USER_INPUT"
+      async (tx) => {
+        const targetMember = await projectRepository.findMember(
+          input.projectId,
+          input.userId,
+          tx
         );
+        if (!targetMember) {
+          throw appError("Target member not found.", "NOT_FOUND");
+        }
+        if (targetMember.role === "OWNER" && input.role !== "OWNER") {
+          const ownerCount = await projectRepository.countOwners(
+            input.projectId,
+            tx
+          );
+          if (ownerCount <= 1) {
+            throw appError(
+              "Project must keep at least one owner.",
+              "BAD_USER_INPUT"
+            );
+          }
+        }
+        const roleUpdated = await projectRepository.setMemberRole(
+          input.projectId,
+          input.userId,
+          input.role,
+          tx
+        );
+        if (roleUpdated) {
+          await projectRepository.touchProject(input.projectId, tx);
+        }
+        return roleUpdated;
       }
-    }
-
-    const changed = await projectRepository.setMemberRole(
-      input.projectId,
-      input.userId,
-      input.role
     );
     if (!changed) {
       throw appError("Target member not found.", "NOT_FOUND");
     }
-    await projectRepository.touchProject(input.projectId);
+    await authRepository.syncProjectProfileAssignment(
+      input.userId,
+      input.projectId,
+      input.role
+    );
     const project = await requireProject(input.projectId);
     return buildProject(project);
   },
@@ -563,14 +635,22 @@ export const projectService = {
       );
     }
 
-    await rateRepository.upsert({
-      projectId: input.projectId,
-      fromCurrency: input.fromCurrency,
-      toCurrency: input.toCurrency,
-      rate: input.rate,
-      updatedBy: viewer.id,
-    });
-    await projectRepository.touchProject(input.projectId);
+    await projectRepository.withProjectWriteLock(
+      input.projectId,
+      async (tx) => {
+        await rateRepository.upsert(
+          {
+            projectId: input.projectId,
+            fromCurrency: input.fromCurrency,
+            toCurrency: input.toCurrency,
+            rate: input.rate,
+            updatedBy: viewer.id,
+          },
+          tx
+        );
+        await projectRepository.touchProject(input.projectId, tx);
+      }
+    );
     const project = await requireProject(input.projectId);
     return buildProject(project);
   },

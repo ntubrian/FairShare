@@ -7,12 +7,21 @@ import { HttpLink } from "@apollo/client/link/http";
 
 const GOOGLE_TOKEN_KEY = "fairshare.googleIdToken";
 const DEV_USER_ID_KEY = "fairshare.devUserId";
+const looksLikeJwt = (value: string) => value.split(".").length === 3;
 
 const resolveGraphQLEndpoint = () => {
   const configuredEndpoint = process.env.REACT_APP_GRAPHQL_ENDPOINT;
 
-  if (typeof window !== "undefined" && window.location.hostname.includes("-3000.csb.app")) {
-    const sandboxEndpoint = `${window.location.protocol}//${window.location.hostname.replace("-3000.csb.app", "-4000.csb.app")}/graphql`;
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.includes("-3000.csb.app")
+  ) {
+    const sandboxEndpoint = `${
+      window.location.protocol
+    }//${window.location.hostname.replace(
+      "-3000.csb.app",
+      "-4000.csb.app"
+    )}/graphql`;
     if (!configuredEndpoint) {
       return sandboxEndpoint;
     }
@@ -50,11 +59,26 @@ const removeStorage = (key: string) => {
   localStorage.removeItem(key);
 };
 
+const readConfiguredGoogleIdToken = () => {
+  const configured = process.env.REACT_APP_GOOGLE_ID_TOKEN?.trim() ?? "";
+  return looksLikeJwt(configured) ? configured : "";
+};
+
+const readConfiguredDevUserId = () =>
+  process.env.REACT_APP_DEV_USER_ID?.trim() ?? "";
+
+const readRuntimeGoogleIdToken = () => {
+  const token = readStorage(GOOGLE_TOKEN_KEY).trim();
+  return looksLikeJwt(token) ? token : "";
+};
+
+const readRuntimeDevUserId = () => readStorage(DEV_USER_ID_KEY).trim();
+
 export const authStorage = {
-  getGoogleIdToken: () => readStorage(GOOGLE_TOKEN_KEY),
+  getGoogleIdToken: () => readRuntimeGoogleIdToken(),
   setGoogleIdToken: (token: string) => writeStorage(GOOGLE_TOKEN_KEY, token),
   clearGoogleIdToken: () => removeStorage(GOOGLE_TOKEN_KEY),
-  getDevUserId: () => readStorage(DEV_USER_ID_KEY),
+  getDevUserId: () => readRuntimeDevUserId(),
   setDevUserId: (userId: string) => writeStorage(DEV_USER_ID_KEY, userId),
   clearDevUserId: () => removeStorage(DEV_USER_ID_KEY),
   clearAll: () => {
@@ -63,10 +87,10 @@ export const authStorage = {
   },
   hasAuthCredentials: () =>
     Boolean(
-      readStorage(GOOGLE_TOKEN_KEY) ||
-        readStorage(DEV_USER_ID_KEY) ||
-        process.env.REACT_APP_GOOGLE_ID_TOKEN ||
-        process.env.REACT_APP_DEV_USER_ID,
+      readRuntimeGoogleIdToken() ||
+        readRuntimeDevUserId() ||
+        readConfiguredGoogleIdToken() ||
+        readConfiguredDevUserId()
     ),
 };
 
@@ -91,10 +115,10 @@ const toHeaderRecord = (headers: unknown): Record<string, string> => {
 };
 
 const authLink = new SetContextLink((prevContext) => {
-  const runtimeToken = authStorage.getGoogleIdToken();
-  const runtimeDevUserId = authStorage.getDevUserId();
-  const googleToken = runtimeToken || process.env.REACT_APP_GOOGLE_ID_TOKEN || "";
-  const devUserId = runtimeDevUserId || process.env.REACT_APP_DEV_USER_ID || "";
+  const runtimeToken = readRuntimeGoogleIdToken();
+  const runtimeDevUserId = readRuntimeDevUserId();
+  const googleToken = runtimeToken || readConfiguredGoogleIdToken();
+  const devUserId = runtimeDevUserId || readConfiguredDevUserId();
   const headers = toHeaderRecord(prevContext.headers);
 
   return {
@@ -111,12 +135,17 @@ const errorLink = new ErrorLink(({ error }) => {
 
   if (CombinedGraphQLErrors.is(error)) {
     unauthenticated = error.errors.some(
-      (graphQLError) => graphQLError.extensions?.code === "UNAUTHENTICATED",
+      (graphQLError) => graphQLError.extensions?.code === "UNAUTHENTICATED"
     );
   }
 
   const message = typeof error?.message === "string" ? error.message : "";
-  const isStoreResetCancellation = message.includes("Store reset while query was in flight");
+  if (!unauthenticated && message.includes("UNAUTHENTICATED")) {
+    unauthenticated = true;
+  }
+  const isStoreResetCancellation = message.includes(
+    "Store reset while query was in flight"
+  );
 
   if (unauthenticated && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("fairshare:unauthenticated"));

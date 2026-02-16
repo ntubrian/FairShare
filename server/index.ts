@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { GraphQLError } from "graphql";
 import { createHandler } from "graphql-http/lib/use/express";
 import { env } from "./config/env";
 import { authService } from "./services/authService";
@@ -117,7 +118,17 @@ app.all(
     schema: getSchema(),
     context: async (request): Promise<GraphQLContext> => {
       const acceptLanguage = request.raw.headers["accept-language"];
-      const viewer = await authService.authenticate(request.raw.headers);
+      let viewer: GraphQLContext["viewer"] = null;
+      try {
+        viewer = await authService.authenticate(request.raw.headers);
+      } catch (error) {
+        const isUnauthenticated =
+          error instanceof GraphQLError &&
+          error.extensions?.code === "UNAUTHENTICATED";
+        if (!isUnauthenticated) {
+          throw error;
+        }
+      }
       return {
         viewer,
         acceptLanguage:

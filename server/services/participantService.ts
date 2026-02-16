@@ -58,17 +58,26 @@ export const participantService = {
   ) {
     await projectService.ensureEditable(projectId, context);
     const trimmed = trimAndRequire(name);
-    const existing = await participantRepository.listByProject(projectId);
-    const duplicated = existing.some(
-      (participant) => participant.name.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (duplicated) {
-      throw appError("Participant name already exists.", "BAD_USER_INPUT");
+    try {
+      return await projectRepository.withProjectWriteLock(
+        projectId,
+        async (tx) => {
+          const created = await participantRepository.add(
+            projectId,
+            trimmed,
+            tx
+          );
+          await projectRepository.touchProject(projectId, tx);
+          return toParticipant(created);
+        }
+      );
+    } catch (error) {
+      const pgError = error as { code?: string };
+      if (pgError.code === "23505") {
+        throw appError("Participant name already exists.", "BAD_USER_INPUT");
+      }
+      throw error;
     }
-
-    const created = await participantRepository.add(projectId, trimmed);
-    await projectRepository.touchProject(projectId);
-    return toParticipant(created);
   },
 
   async removeParticipant(
@@ -77,26 +86,30 @@ export const participantService = {
     context: GraphQLContext
   ) {
     await projectService.ensureEditable(projectId, context);
-    const participant = await participantRepository.findByIdInProject(
-      projectId,
-      participantId
-    );
-    if (!participant) {
-      throw appError("Participant not found.", "NOT_FOUND");
-    }
-    const hasActiveExpenses = await participantRepository.hasActiveExpenses(
-      participantId
-    );
-    if (hasActiveExpenses) {
-      throw appError(
-        "Cannot remove participant with active expenses.",
-        "BAD_USER_INPUT"
+    return projectRepository.withProjectWriteLock(projectId, async (tx) => {
+      const participant = await participantRepository.findByIdInProject(
+        projectId,
+        participantId,
+        tx
       );
-    }
-    const removed = await participantRepository.remove(participantId);
-    if (removed) {
-      await projectRepository.touchProject(projectId);
-    }
-    return removed;
+      if (!participant) {
+        throw appError("Participant not found.", "NOT_FOUND");
+      }
+      const hasActiveExpenses = await participantRepository.hasActiveExpenses(
+        participantId,
+        tx
+      );
+      if (hasActiveExpenses) {
+        throw appError(
+          "Cannot remove participant with active expenses.",
+          "BAD_USER_INPUT"
+        );
+      }
+      const removed = await participantRepository.remove(participantId, tx);
+      if (removed) {
+        await projectRepository.touchProject(projectId, tx);
+      }
+      return removed;
+    });
   },
 };

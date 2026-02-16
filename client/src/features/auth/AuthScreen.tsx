@@ -4,6 +4,7 @@ import styles from "./AuthScreen.module.scss";
 type AuthScreenProps = {
   googleClientConfigured: boolean;
   googleReady: boolean;
+  googleError?: string | null;
   googleButtonRef: React.RefObject<HTMLDivElement>;
   canInstall: boolean;
   onInstall: () => Promise<void> | void;
@@ -19,6 +20,7 @@ type AuthScreenProps = {
 export const AuthScreen = ({
   googleClientConfigured,
   googleReady,
+  googleError,
   googleButtonRef,
   canInstall,
   onInstall,
@@ -64,7 +66,10 @@ export const AuthScreen = ({
           {googleClientConfigured ? (
             <>
               <div ref={googleButtonRef} />
-              {!googleReady ? (
+              {googleError ? (
+                <p className={styles.errorInline}>{googleError}</p>
+              ) : null}
+              {!googleReady && !googleError ? (
                 <p className={styles.hintLine}>Loading Google sign-in...</p>
               ) : null}
             </>

@@ -9,15 +9,19 @@ export type ParticipantRow = {
   created_at: string;
 };
 
+type DbExecutor = ReturnType<typeof getDb>;
+const resolveDb = (executor?: DbExecutor) => executor ?? getDb();
+
 export const participantRepository = {
   async listByProject(
     projectId: string,
     options?: {
       page?: number;
       pageSize?: number;
-    }
+    },
+    executor?: DbExecutor
   ) {
-    const db = getDb();
+    const db = resolveDb(executor);
     const page =
       options?.page && options.page > 0 ? Math.floor(options.page) : 1;
     const pageSize =
@@ -42,8 +46,8 @@ export const participantRepository = {
     return baseQuery.limit(pageSize).offset((page - 1) * pageSize);
   },
 
-  async findById(participantId: string) {
-    const db = getDb();
+  async findById(participantId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({
         id: participant.id,
@@ -56,8 +60,12 @@ export const participantRepository = {
     return row ?? null;
   },
 
-  async findByIdInProject(projectId: string, participantId: string) {
-    const db = getDb();
+  async findByIdInProject(
+    projectId: string,
+    participantId: string,
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({
         id: participant.id,
@@ -75,8 +83,8 @@ export const participantRepository = {
     return row ?? null;
   },
 
-  async add(projectId: string, name: string) {
-    const db = getDb();
+  async add(projectId: string, name: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .insert(participant)
       .values({
@@ -92,8 +100,8 @@ export const participantRepository = {
     return row;
   },
 
-  async remove(participantId: string) {
-    const db = getDb();
+  async remove(participantId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const rows = await db
       .delete(participant)
       .where(eq(participant.id, participantId))
@@ -101,8 +109,8 @@ export const participantRepository = {
     return rows.length > 0;
   },
 
-  async hasActiveExpenses(participantId: string) {
-    const db = getDb();
+  async hasActiveExpenses(participantId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     const [row] = await db
       .select({ count: count() })
       .from(expense)

@@ -12,9 +12,12 @@ export type AgreedRateRow = {
   updated_at: string;
 };
 
+type DbExecutor = ReturnType<typeof getDb>;
+const resolveDb = (executor?: DbExecutor) => executor ?? getDb();
+
 export const rateRepository = {
-  async listByProject(projectId: string) {
-    const db = getDb();
+  async listByProject(projectId: string, executor?: DbExecutor) {
+    const db = resolveDb(executor);
     return db
       .select({
         project_id: agreedRate.projectId,
@@ -29,14 +32,17 @@ export const rateRepository = {
       .orderBy(asc(agreedRate.fromCurrency), asc(agreedRate.toCurrency));
   },
 
-  async upsert(input: {
-    projectId: string;
-    fromCurrency: Currency;
-    toCurrency: Currency;
-    rate: number;
-    updatedBy: string;
-  }) {
-    const db = getDb();
+  async upsert(
+    input: {
+      projectId: string;
+      fromCurrency: Currency;
+      toCurrency: Currency;
+      rate: number;
+      updatedBy: string;
+    },
+    executor?: DbExecutor
+  ) {
+    const db = resolveDb(executor);
     const [row] = await db
       .insert(agreedRate)
       .values({
