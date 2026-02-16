@@ -17,7 +17,13 @@ import { expenseRepository } from "../repositories/expenseRepository";
 import { rateRepository } from "../repositories/rateRepository";
 import { userRepository } from "../repositories/userRepository";
 import { authRepository } from "../repositories/authRepository";
-import { AuthUser, Currency, GraphQLContext, MemberRole } from "../types";
+import {
+  AuthUser,
+  Currency,
+  GraphQLContext,
+  MemberRole,
+  SplitMode,
+} from "../types";
 import { assertCurrency } from "./domainUtils";
 
 type GraphQLUser = {
@@ -49,10 +55,18 @@ type GraphQLExpense = {
   payer: GraphQLParticipant | null;
   amount: number;
   currency: Currency;
+  splitMode: SplitMode;
   description: string | null;
+  occurredAt: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  splits: Array<{
+    participantId: string;
+    participant: GraphQLParticipant | null;
+    amount: number | null;
+    shares: number | null;
+  }>;
 };
 
 type GraphQLAgreedRate = {
@@ -136,7 +150,9 @@ const mapExpense = (
     payer_participant_id: string;
     amount: string;
     currency: Currency;
+    split_mode: SplitMode;
     description: string | null;
+    occurred_at: string;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -149,10 +165,13 @@ const mapExpense = (
   payer: participantsById.get(row.payer_participant_id) ?? null,
   amount: Number(row.amount),
   currency: row.currency,
+  splitMode: row.split_mode,
   description: row.description,
+  occurredAt: row.occurred_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   deletedAt: row.deleted_at,
+  splits: [],
 });
 
 const mapAgreedRate = (row: {

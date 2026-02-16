@@ -1,5 +1,8 @@
 import { appError } from "../lib/errors";
-import { expenseRepository } from "../repositories/expenseRepository";
+import {
+  ExpenseSplitRow,
+  expenseRepository,
+} from "../repositories/expenseRepository";
 import { participantRepository } from "../repositories/participantRepository";
 import { rateRepository } from "../repositories/rateRepository";
 import { CURRENCIES, Currency, GraphQLContext, RateSource } from "../types";
@@ -149,6 +152,52 @@ const buildRateSnapshot = (
   }),
 });
 
+const groupSplitRowsByExpenseId = (rows: ExpenseSplitRow[]) => {
+  const grouped = new Map<string, ExpenseSplitRow[]>();
+  for (const row of rows) {
+    const current = grouped.get(row.expense_id) ?? [];
+    current.push(row);
+    grouped.set(row.expense_id, current);
+  }
+  return grouped;
+};
+
+const distributeByWeight = (
+  totalAmount: number,
+  weightedParticipants: Array<{ participantId: string; weight: number }>
+) => {
+  if (!weightedParticipants.length) {
+    throw appError(
+      "Expense split must include at least one participant.",
+      "BAD_USER_INPUT"
+    );
+  }
+
+  const totalWeight = weightedParticipants.reduce(
+    (sum, row) => sum + row.weight,
+    0
+  );
+  if (totalWeight <= 0) {
+    throw appError(
+      "Expense split weight must be greater than 0.",
+      "BAD_USER_INPUT"
+    );
+  }
+
+  let allocated = 0;
+  return weightedParticipants.map((row, index) => {
+    const isLast = index === weightedParticipants.length - 1;
+    const amount = isLast
+      ? Math.max(0, roundMoney(totalAmount - allocated))
+      : roundMoney((totalAmount * row.weight) / totalWeight);
+    allocated = roundMoney(allocated + amount);
+    return {
+      participantId: row.participantId,
+      amount,
+    };
+  });
+};
+
 export const settlementService = {
   async calculate(
     projectId: string,
@@ -189,6 +238,13 @@ export const settlementService = {
     const paidBy = new Map(
       mappedParticipants.map((participant) => [participant.id, 0])
     );
+    const owedBy = new Map(
+      mappedParticipants.map((participant) => [participant.id, 0])
+    );
+    const splitRows = await expenseRepository.listSplitsByExpenseIds(
+      expenses.map((expense) => expense.id)
+    );
+    const splitRowsByExpenseId = groupSplitRowsByExpenseId(splitRows);
     let liveSnapshot:
       | { fetchedAt: string; ratesFromTwd: Record<Currency, number> }
       | undefined;
@@ -226,21 +282,69 @@ export const settlementService = {
           );
         }
       }
+      amountInTarget = roundMoney(amountInTarget);
       const current = paidBy.get(payerId) ?? 0;
-      paidBy.set(payerId, current + amountInTarget);
-    }
+      paidBy.set(payerId, roundMoney(current + amountInTarget));
 
-    const totalPaid = Array.from(paidBy.values()).reduce(
-      (sum, value) => sum + value,
-      0
-    );
-    const equalShare = totalPaid / mappedParticipants.length;
+      const splitMode = expense.split_mode;
+      const expenseSplitRows = splitRowsByExpenseId.get(expense.id) ?? [];
+      let weightedParticipants: Array<{
+        participantId: string;
+        weight: number;
+      }> = [];
+
+      if (splitMode === "EQUAL") {
+        const participantIds =
+          expenseSplitRows.length > 0
+            ? expenseSplitRows.map((row) => row.participant_id)
+            : mappedParticipants.map((participant) => participant.id);
+        weightedParticipants = participantIds.map((participantId) => ({
+          participantId,
+          weight: 1,
+        }));
+      } else if (splitMode === "EXACT") {
+        weightedParticipants = expenseSplitRows.map((row) => {
+          const exactAmount = row.amount === null ? NaN : Number(row.amount);
+          if (!Number.isFinite(exactAmount) || exactAmount <= 0) {
+            throw appError("Invalid exact split amount.", "BAD_USER_INPUT");
+          }
+          return { participantId: row.participant_id, weight: exactAmount };
+        });
+      } else {
+        weightedParticipants = expenseSplitRows.map((row) => {
+          const shares = row.shares === null ? NaN : Number(row.shares);
+          if (!Number.isFinite(shares) || shares <= 0) {
+            throw appError("Invalid shares split value.", "BAD_USER_INPUT");
+          }
+          return { participantId: row.participant_id, weight: shares };
+        });
+      }
+
+      const allocations = distributeByWeight(
+        amountInTarget,
+        weightedParticipants
+      );
+      for (const allocation of allocations) {
+        if (!participantsById.has(allocation.participantId)) {
+          throw appError(
+            "Expense split participant not found in project.",
+            "BAD_USER_INPUT"
+          );
+        }
+        const existing = owedBy.get(allocation.participantId) ?? 0;
+        owedBy.set(
+          allocation.participantId,
+          roundMoney(existing + allocation.amount)
+        );
+      }
+    }
     const creditors: Array<{ participantId: string; balance: number }> = [];
     const debtors: Array<{ participantId: string; balance: number }> = [];
 
     for (const participant of mappedParticipants) {
       const paid = paidBy.get(participant.id) ?? 0;
-      const balance = roundMoney(paid - equalShare);
+      const owed = owedBy.get(participant.id) ?? 0;
+      const balance = roundMoney(paid - owed);
       if (balance > 0) {
         creditors.push({ participantId: participant.id, balance });
       } else if (balance < 0) {

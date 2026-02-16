@@ -36,16 +36,16 @@
 
 ## 4. README Baseline Alignment Checklist
 
-| README Core Requirement                           | Spec Status                                                    |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| Create Project / Switch Context / Isolation       | Aligned, data isolated by `project_id`                         |
-| Manage People + remove validation                 | Aligned, participants with existing expenses cannot be removed |
-| Add Expense (`payer/amount/currency/description`) | Aligned                                                        |
-| Supported Currencies: USD, TWD, JPY, EUR          | Aligned (fixed four currencies)                                |
-| Expense List + correction flow                    | Aligned (edit/soft delete/restore)                             |
-| Target Currency + Calculate + who owes whom       | Aligned                                                        |
-| Result Display in Dialog/Modal                    | Aligned                                                        |
-| Exchange Rate API                                 | Aligned (`https://open.er-api.com/v6/latest/TWD`)              |
+| README Core Requirement                                      | Spec Status                                                    |
+| ------------------------------------------------------------ | -------------------------------------------------------------- |
+| Create Project / Switch Context / Isolation                  | Aligned, data isolated by `project_id`                         |
+| Manage People + remove validation                            | Aligned, participants with existing expenses cannot be removed |
+| Add Expense (`payer/amount/currency/description/date/split`) | Aligned                                                        |
+| Supported Currencies: USD, TWD, JPY, EUR                     | Aligned (fixed four currencies)                                |
+| Expense List + correction flow                               | Aligned (edit/soft delete/restore)                             |
+| Target Currency + Calculate + who owes whom                  | Aligned                                                        |
+| Result Display in Dialog/Modal                               | Aligned                                                        |
+| Exchange Rate API                                            | Aligned (`https://open.er-api.com/v6/latest/TWD`)              |
 
 ## 5. Roles and Permissions
 
@@ -164,10 +164,16 @@ T --> U[Export PDF]
 
 ### FR-4 Expense Management
 
-- Fields: `payerId`, `amount`, `currency`, `description?`.
+- Fields: `payerId`, `amount`, `currency`, `description?`, `occurredAt`, `splitMode`, `splits`.
 - `payerId` must exist in the current project participant list.
 - `amount` must be a positive number.
 - `currency` must be one of `USD/TWD/JPY/EUR`.
+- `occurredAt` must be a valid date-time.
+- `splitMode` must be one of `EQUAL / EXACT / SHARES`.
+- `splits` validation:
+  - `EQUAL`: at least one participant selected.
+  - `EXACT`: every selected participant has amount > 0, and sum equals total amount.
+  - `SHARES`: every selected participant has shares > 0.
 - Expenses must be displayed in the current project's list.
 
 ### FR-5 Mistake Handling

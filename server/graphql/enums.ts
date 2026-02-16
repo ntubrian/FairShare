@@ -23,6 +23,12 @@ export enum RateSourceEnum {
   LIVE = "LIVE",
 }
 
+export enum SplitModeEnum {
+  EQUAL = "EQUAL",
+  EXACT = "EXACT",
+  SHARES = "SHARES",
+}
+
 export enum LocaleEnum {
   EN = "EN",
   ZH_TW = "ZH_TW",
@@ -42,6 +48,10 @@ registerEnumType(ProjectStatusEnum, {
 
 registerEnumType(RateSourceEnum, {
   name: "RateSource",
+});
+
+registerEnumType(SplitModeEnum, {
+  name: "SplitMode",
 });
 
 registerEnumType(LocaleEnum, {

@@ -4,22 +4,19 @@ import {
   CreateExpenseDocument,
   Currency,
   DebitCreditSummaryDocument,
+  ExpenseSplitInput,
   MemberRole,
   ProjectDetailDocument,
   ProjectExpensesDocument,
   ProjectParticipantsDocument,
   ProjectStatus,
+  SplitMode,
 } from "../../graphql/generated";
 import { toFriendlyError } from "../../lib/errors";
 import { formatRelativeTime } from "../dashboard/utils";
 import styles from "./ExpensesScreen.module.scss";
 
-const CURRENCY_OPTIONS = [
-  Currency.Usd,
-  Currency.Twd,
-  Currency.Jpy,
-  Currency.Eur,
-];
+const CURRENCY_OPTIONS = [Currency.Usd, Currency.Twd, Currency.Jpy, Currency.Eur];
 
 type ExpensesScreenProps = {
   projectId: string;
@@ -34,13 +31,47 @@ type ExpenseFormState = {
   amount: string;
   currency: Currency;
   description: string;
+  occurredAt: string;
+  splitMode: SplitMode;
+  splitRows: Record<
+    string,
+    {
+      included: boolean;
+      amount: string;
+      shares: string;
+    }
+  >;
 };
 
-const DEFAULT_FORM: ExpenseFormState = {
-  payerId: "",
-  amount: "",
-  currency: Currency.Twd,
-  description: "",
+const toDateInputValue = (value: Date | string) => {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (!Number.isFinite(date.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  return date.toISOString().slice(0, 10);
+};
+
+const buildDefaultForm = (
+  participants: Array<{ id: string }>,
+): ExpenseFormState => {
+  const splitRows: ExpenseFormState["splitRows"] = {};
+  for (const participant of participants) {
+    splitRows[participant.id] = {
+      included: true,
+      amount: "",
+      shares: "1",
+    };
+  }
+
+  return {
+    payerId: participants[0]?.id ?? "",
+    amount: "",
+    currency: Currency.Twd,
+    description: "",
+    occurredAt: toDateInputValue(new Date()),
+    splitMode: SplitMode.Equal,
+    splitRows,
+  };
 };
 
 const formatDayLabel = (iso: string) => {
@@ -48,11 +79,7 @@ const formatDayLabel = (iso: string) => {
   if (!Number.isFinite(date.getTime())) {
     return "Unknown date";
   }
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(date);
+  return new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(date);
 };
 
 const formatAmount = (amount: number) => {
@@ -62,17 +89,11 @@ const formatAmount = (amount: number) => {
   return amount.toFixed(2);
 };
 
-export const ExpensesScreen = ({
-  projectId,
-  viewerId,
-  viewerName,
-  onBack,
-  onLogout,
-}: ExpensesScreenProps) => {
+export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogout }: ExpensesScreenProps) => {
   const [payerFilter, setPayerFilter] = useState("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<"ALL" | Currency>("ALL");
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState<ExpenseFormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<ExpenseFormState>(() => buildDefaultForm([]));
   const [localError, setLocalError] = useState<string | null>(null);
 
   const {
@@ -112,23 +133,43 @@ export const ExpensesScreen = ({
     fetchPolicy: "network-only",
   });
 
-  const [createExpense, { loading: createExpenseLoading }] = useMutation(
-    CreateExpenseDocument
-  );
+  const [createExpense, { loading: createExpenseLoading }] = useMutation(CreateExpenseDocument);
 
   const participants = participantsData?.participants ?? [];
   const expenses = expensesData?.expenses ?? [];
   const summary = summaryData?.debitCreditSummary;
   const project = projectData?.project;
   const viewerProjectRole =
-    project?.members.find((member) => member.userId === viewerId)?.role ??
-    MemberRole.Viewer;
+    project?.members.find((member) => member.userId === viewerId)?.role ?? MemberRole.Viewer;
   const isProjectArchived = project?.status === ProjectStatus.Archived;
   const canMutate =
     Boolean(project) &&
     !isProjectArchived &&
-    (viewerProjectRole === MemberRole.Owner ||
-      viewerProjectRole === MemberRole.Editor);
+    (viewerProjectRole === MemberRole.Owner || viewerProjectRole === MemberRole.Editor);
+
+  useEffect(() => {
+    if (!addOpen) {
+      return;
+    }
+    setForm((current) => {
+      const nextSplitRows: ExpenseFormState["splitRows"] = {};
+      for (const participant of participants) {
+        nextSplitRows[participant.id] = current.splitRows[participant.id] ?? {
+          included: true,
+          amount: "",
+          shares: "1",
+        };
+      }
+      const nextPayerId = participants.some((participant) => participant.id === current.payerId)
+        ? current.payerId
+        : (participants[0]?.id ?? "");
+      return {
+        ...current,
+        payerId: nextPayerId,
+        splitRows: nextSplitRows,
+      };
+    });
+  }, [addOpen, participants]);
 
   const refreshAll = async () => {
     setLocalError(null);
@@ -136,12 +177,7 @@ export const ExpensesScreen = ({
       await Promise.all([
         refetchProject({ projectId }),
         refetchParticipants({ projectId, page: 1, pageSize: 100 }),
-        refetchExpenses({
-          projectId,
-          page: 1,
-          pageSize: 200,
-          includeDeleted: false,
-        }),
+        refetchExpenses({ projectId, page: 1, pageSize: 200, includeDeleted: false }),
         refetchSummary({ projectId, includeDeleted: false }),
       ]);
     } catch (error) {
@@ -160,7 +196,7 @@ export const ExpensesScreen = ({
         }
         return true;
       }),
-    [currencyFilter, expenses, payerFilter]
+    [currencyFilter, expenses, payerFilter],
   );
 
   const groupedExpenses = useMemo(() => {
@@ -172,13 +208,13 @@ export const ExpensesScreen = ({
       }
     >();
     for (const item of filteredExpenses) {
-      const dayKey = new Date(item.createdAt).toISOString().slice(0, 10);
+      const dayKey = new Date(item.occurredAt).toISOString().slice(0, 10);
       const current = groups.get(dayKey);
       if (current) {
         current.items.push(item);
       } else {
         groups.set(dayKey, {
-          dayLabel: formatDayLabel(item.createdAt),
+          dayLabel: formatDayLabel(item.occurredAt),
           items: [item],
         });
       }
@@ -189,19 +225,12 @@ export const ExpensesScreen = ({
   }, [filteredExpenses]);
 
   const screenError = useMemo(() => {
-    const firstError =
-      projectError || participantsError || expensesError || summaryError;
+    const firstError = projectError || participantsError || expensesError || summaryError;
     if (!firstError) {
       return localError;
     }
     return toFriendlyError(firstError) || localError;
-  }, [
-    projectError,
-    participantsError,
-    expensesError,
-    summaryError,
-    localError,
-  ]);
+  }, [projectError, participantsError, expensesError, summaryError, localError]);
 
   const onSubmitExpense = async () => {
     setLocalError(null);
@@ -210,6 +239,11 @@ export const ExpensesScreen = ({
       return;
     }
     const amount = Number(form.amount);
+    const occurredAt = new Date(form.occurredAt);
+    const selectedParticipantIds = participants
+      .map((participant) => participant.id)
+      .filter((participantId) => form.splitRows[participantId]?.included);
+
     if (!form.payerId) {
       setLocalError("Please select a payer.");
       return;
@@ -217,6 +251,58 @@ export const ExpensesScreen = ({
     if (!Number.isFinite(amount) || amount <= 0) {
       setLocalError("Amount must be greater than 0.");
       return;
+    }
+    if (!Number.isFinite(occurredAt.getTime())) {
+      setLocalError("Please pick a valid expense date.");
+      return;
+    }
+    if (!selectedParticipantIds.length) {
+      setLocalError("Select at least one participant for split.");
+      return;
+    }
+
+    let splits: ExpenseSplitInput[] | undefined;
+
+    if (form.splitMode === SplitMode.Equal) {
+      splits = selectedParticipantIds.map((participantId) => ({ participantId }));
+    }
+
+    if (form.splitMode === SplitMode.Exact) {
+      let exactTotal = 0;
+      const exactSplits: ExpenseSplitInput[] = [];
+      for (const participantId of selectedParticipantIds) {
+        const splitAmount = Number(form.splitRows[participantId]?.amount ?? "");
+        if (!Number.isFinite(splitAmount) || splitAmount <= 0) {
+          setLocalError("Exact split requires amount > 0 for each selected participant.");
+          return;
+        }
+        exactTotal += splitAmount;
+        exactSplits.push({
+          participantId,
+          amount: splitAmount,
+        });
+      }
+      if (Math.abs(exactTotal - amount) > 0.01) {
+        setLocalError("Exact split amounts must equal total amount.");
+        return;
+      }
+      splits = exactSplits;
+    }
+
+    if (form.splitMode === SplitMode.Shares) {
+      const shareSplits: ExpenseSplitInput[] = [];
+      for (const participantId of selectedParticipantIds) {
+        const shares = Number(form.splitRows[participantId]?.shares ?? "");
+        if (!Number.isFinite(shares) || shares <= 0) {
+          setLocalError("Shares split requires shares > 0 for each selected participant.");
+          return;
+        }
+        shareSplits.push({
+          participantId,
+          shares,
+        });
+      }
+      splits = shareSplits;
     }
 
     try {
@@ -227,18 +313,20 @@ export const ExpensesScreen = ({
           amount,
           currency: form.currency,
           description: form.description.trim() || null,
+          occurredAt: occurredAt.toISOString(),
+          splitMode: form.splitMode,
+          splits,
         },
       });
       setAddOpen(false);
-      setForm(DEFAULT_FORM);
+      setForm(buildDefaultForm(participants));
       await refreshAll();
     } catch (error) {
       setLocalError(toFriendlyError(error));
     }
   };
 
-  const isLoading =
-    projectLoading || participantsLoading || expensesLoading || summaryLoading;
+  const isLoading = projectLoading || participantsLoading || expensesLoading || summaryLoading;
   const disableMutationControls = createExpenseLoading || !canMutate;
 
   useEffect(() => {
@@ -250,12 +338,7 @@ export const ExpensesScreen = ({
   return (
     <main className={styles.screen}>
       <header className={styles.headerCard}>
-        <button
-          type="button"
-          className={styles.backButton}
-          onClick={onBack}
-          aria-label="Back to projects"
-        >
+        <button type="button" className={styles.backButton} onClick={onBack} aria-label="Back to projects">
           ←
         </button>
         <div className={styles.headerTitle}>
@@ -263,19 +346,10 @@ export const ExpensesScreen = ({
           <p>Expenses</p>
         </div>
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.syncButton}
-            onClick={() => void refreshAll()}
-          >
+          <button type="button" className={styles.syncButton} onClick={() => void refreshAll()}>
             Synced
           </button>
-          <button
-            type="button"
-            className={styles.avatarButton}
-            onClick={() => void onLogout()}
-            aria-label="Logout"
-          >
+          <button type="button" className={styles.avatarButton} onClick={() => void onLogout()} aria-label="Logout">
             {viewerName.charAt(0).toUpperCase() || "U"}
           </button>
         </div>
@@ -284,10 +358,7 @@ export const ExpensesScreen = ({
       <section className={styles.filterRow}>
         <label className={styles.filterField}>
           <span>Payer</span>
-          <select
-            value={payerFilter}
-            onChange={(event) => setPayerFilter(event.target.value)}
-          >
+          <select value={payerFilter} onChange={(event) => setPayerFilter(event.target.value)}>
             <option value="ALL">All</option>
             {participants.map((participant) => (
               <option key={participant.id} value={participant.id}>
@@ -300,9 +371,7 @@ export const ExpensesScreen = ({
           <span>Currency</span>
           <select
             value={currencyFilter}
-            onChange={(event) =>
-              setCurrencyFilter(event.target.value as "ALL" | Currency)
-            }
+            onChange={(event) => setCurrencyFilter(event.target.value as "ALL" | Currency)}
           >
             <option value="ALL">All</option>
             {CURRENCY_OPTIONS.map((currency) => (
@@ -335,12 +404,8 @@ export const ExpensesScreen = ({
                   </p>
                 </div>
                 <div className={styles.summaryValues}>
-                  <span className={styles.creditValue}>
-                    +{formatAmount(row.creditAmount)}
-                  </span>
-                  <span className={styles.debitValue}>
-                    -{formatAmount(row.debitAmount)}
-                  </span>
+                  <span className={styles.creditValue}>+{formatAmount(row.creditAmount)}</span>
+                  <span className={styles.debitValue}>-{formatAmount(row.debitAmount)}</span>
                 </div>
               </li>
             ))}
@@ -368,9 +433,7 @@ export const ExpensesScreen = ({
                   <div className={styles.expenseAmount}>
                     <strong>{formatAmount(item.amount)}</strong>
                     <p>
-                      <span className={styles.currencyChip}>
-                        {item.currency}
-                      </span>
+                      <span className={styles.currencyChip}>{item.currency}</span>
                       {formatRelativeTime(item.createdAt)}
                     </p>
                   </div>
@@ -384,7 +447,10 @@ export const ExpensesScreen = ({
       <button
         type="button"
         className={styles.fab}
-        onClick={() => setAddOpen(true)}
+        onClick={() => {
+          setForm(buildDefaultForm(participants));
+          setAddOpen(true);
+        }}
         aria-label="Add expense"
         disabled={!canMutate}
         title={!canMutate ? "Read-only project" : undefined}
@@ -393,24 +459,11 @@ export const ExpensesScreen = ({
       </button>
 
       {addOpen ? (
-        <div
-          className={styles.overlay}
-          role="presentation"
-          onClick={() => setAddOpen(false)}
-        >
-          <section
-            className={styles.modal}
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
+        <div className={styles.overlay} role="presentation" onClick={() => setAddOpen(false)}>
+          <section className={styles.modal} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h3>Add Expense</h3>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={() => setAddOpen(false)}
-              >
+              <button type="button" className={styles.closeButton} onClick={() => setAddOpen(false)}>
                 ×
               </button>
             </div>
@@ -419,12 +472,7 @@ export const ExpensesScreen = ({
               <select
                 value={form.payerId}
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    payerId: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, payerId: event.target.value }))}
               >
                 <option value="">Select a participant</option>
                 {participants.map((participant) => (
@@ -435,19 +483,46 @@ export const ExpensesScreen = ({
               </select>
             </label>
             <label>
+              <span>Date</span>
+              <input
+                type="date"
+                value={form.occurredAt}
+                disabled={disableMutationControls}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, occurredAt: event.target.value }))
+                }
+              />
+            </label>
+            <label>
               <span>Amount</span>
               <input
                 value={form.amount}
                 inputMode="decimal"
                 placeholder="0.00"
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    amount: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
               />
+            </label>
+            <label>
+              <span>Split</span>
+              <div className={styles.splitModeButtons}>
+                {[SplitMode.Equal, SplitMode.Exact, SplitMode.Shares].map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`${styles.currencyButton} ${form.splitMode === mode ? styles.currencyButtonActive : ""}`}
+                    disabled={disableMutationControls}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        splitMode: mode,
+                      }))
+                    }
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
             </label>
             <label>
               <span>Currency</span>
@@ -456,49 +531,122 @@ export const ExpensesScreen = ({
                   <button
                     key={currency}
                     type="button"
-                    className={`${styles.currencyButton} ${
-                      form.currency === currency
-                        ? styles.currencyButtonActive
-                        : ""
-                    }`}
+                    className={`${styles.currencyButton} ${form.currency === currency ? styles.currencyButtonActive : ""}`}
                     disabled={disableMutationControls}
-                    onClick={() =>
-                      setForm((current) => ({ ...current, currency }))
-                    }
+                    onClick={() => setForm((current) => ({ ...current, currency }))}
                   >
                     {currency}
                   </button>
                 ))}
               </div>
             </label>
+            <section className={styles.splitParticipants}>
+              <span>Participants</span>
+              <div className={styles.splitParticipantList}>
+                {participants.map((participant) => {
+                  const row = form.splitRows[participant.id] ?? {
+                    included: true,
+                    amount: "",
+                    shares: "1",
+                  };
+                  return (
+                    <div key={participant.id} className={styles.splitParticipantRow}>
+                      <label className={styles.participantToggle}>
+                        <input
+                          type="checkbox"
+                          checked={row.included}
+                          disabled={disableMutationControls}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              splitRows: {
+                                ...current.splitRows,
+                                [participant.id]: {
+                                  ...(current.splitRows[participant.id] ?? {
+                                    included: true,
+                                    amount: "",
+                                    shares: "1",
+                                  }),
+                                  included: event.target.checked,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                        <span>{participant.name}</span>
+                      </label>
+                      {row.included && form.splitMode === SplitMode.Exact ? (
+                        <input
+                          className={styles.splitValueInput}
+                          inputMode="decimal"
+                          placeholder="Amount"
+                          value={row.amount}
+                          disabled={disableMutationControls}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              splitRows: {
+                                ...current.splitRows,
+                                [participant.id]: {
+                                  ...(current.splitRows[participant.id] ?? {
+                                    included: true,
+                                    amount: "",
+                                    shares: "1",
+                                  }),
+                                  amount: event.target.value,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                      ) : null}
+                      {row.included && form.splitMode === SplitMode.Shares ? (
+                        <input
+                          className={styles.splitValueInput}
+                          inputMode="decimal"
+                          placeholder="Shares"
+                          value={row.shares}
+                          disabled={disableMutationControls}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              splitRows: {
+                                ...current.splitRows,
+                                [participant.id]: {
+                                  ...(current.splitRows[participant.id] ?? {
+                                    included: true,
+                                    amount: "",
+                                    shares: "1",
+                                  }),
+                                  shares: event.target.value,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
             <label>
               <span>Description (optional)</span>
               <input
                 value={form.description}
                 placeholder="e.g., Team lunch"
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    description: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
               />
             </label>
-            <button
-              type="button"
-              disabled={disableMutationControls}
-              onClick={() => void onSubmitExpense()}
-            >
+            <button type="button" disabled={disableMutationControls} onClick={() => void onSubmitExpense()}>
               {createExpenseLoading ? "Saving..." : "Save Expense"}
             </button>
           </section>
         </div>
       ) : null}
 
-      {screenError ? (
-        <section className={styles.errorBanner}>{screenError}</section>
-      ) : null}
+      {screenError ? <section className={styles.errorBanner}>{screenError}</section> : null}
     </main>
   );
 };

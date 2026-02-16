@@ -1,10 +1,22 @@
-import { Arg, Authorized, Ctx, Float, ID, Mutation, Resolver } from "type-graphql";
+import { Arg, Authorized, Ctx, Field, Float, ID, InputType, Mutation, Resolver } from "type-graphql";
 import { expenseService } from "../../services/expenseService";
 import { participantService } from "../../services/participantService";
 import { projectService } from "../../services/projectService";
-import { Currency, GraphQLContext, MemberRole } from "../../types";
-import { CurrencyEnum, MemberRoleEnum } from "../enums";
+import { Currency, GraphQLContext, MemberRole, SplitMode } from "../../types";
+import { CurrencyEnum, MemberRoleEnum, SplitModeEnum } from "../enums";
 import { Expense, Participant, Project } from "../types";
+
+@InputType()
+class ExpenseSplitInput {
+  @Field(() => ID)
+  participantId!: string;
+
+  @Field(() => Float, { nullable: true })
+  amount?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  shares?: number | null;
+}
 
 @Authorized()
 @Resolver()
@@ -112,6 +124,9 @@ export class MutationResolver {
     @Arg("amount", () => Float) amount: number,
     @Arg("currency", () => CurrencyEnum) currency: CurrencyEnum,
     @Arg("description", () => String, { nullable: true }) description: string | null,
+    @Arg("occurredAt", () => String, { nullable: true }) occurredAt: string | null,
+    @Arg("splitMode", () => SplitModeEnum, { defaultValue: SplitModeEnum.EQUAL }) splitMode: SplitModeEnum,
+    @Arg("splits", () => [ExpenseSplitInput], { nullable: true }) splits: ExpenseSplitInput[] | null,
     @Ctx() context: GraphQLContext,
   ) {
     return expenseService.createExpense(
@@ -121,6 +136,9 @@ export class MutationResolver {
         amount,
         currency: currency as Currency,
         description,
+        occurredAt: occurredAt ?? undefined,
+        splitMode: splitMode as SplitMode,
+        splits: splits ?? undefined,
       },
       context,
     );
@@ -134,6 +152,9 @@ export class MutationResolver {
     @Arg("amount", () => Float, { nullable: true }) amount: number | null,
     @Arg("currency", () => CurrencyEnum, { nullable: true }) currency: CurrencyEnum | null,
     @Arg("description", () => String, { nullable: true }) description: string | null,
+    @Arg("occurredAt", () => String, { nullable: true }) occurredAt: string | null,
+    @Arg("splitMode", () => SplitModeEnum, { nullable: true }) splitMode: SplitModeEnum | null,
+    @Arg("splits", () => [ExpenseSplitInput], { nullable: true }) splits: ExpenseSplitInput[] | null,
     @Ctx() context: GraphQLContext,
   ) {
     return expenseService.updateExpense(
@@ -144,6 +165,9 @@ export class MutationResolver {
         amount,
         currency: currency as Currency | null,
         description,
+        occurredAt: occurredAt ?? undefined,
+        splitMode: splitMode === null ? undefined : (splitMode as SplitMode),
+        splits: splits ?? undefined,
       },
       context,
     );

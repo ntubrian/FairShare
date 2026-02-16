@@ -4,6 +4,9 @@ export type Currency = (typeof CURRENCIES)[number];
 export const MEMBER_ROLES = ["OWNER", "EDITOR", "VIEWER"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
+export const SPLIT_MODES = ["EQUAL", "EXACT", "SHARES"] as const;
+export type SplitMode = (typeof SPLIT_MODES)[number];
+
 export const PROJECT_STATUS = ["ACTIVE", "ARCHIVED"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUS)[number];
 

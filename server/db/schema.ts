@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { Currency, MemberRole, ProjectStatus } from "../types";
+import { Currency, MemberRole, ProjectStatus, SplitMode } from "../types";
 
 export const appUser = pgTable("app_user", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -104,7 +104,11 @@ export const expense = pgTable(
       .references(() => participant.id),
     amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
     currency: text("currency").$type<Currency>().notNull(),
+    splitMode: text("split_mode").$type<SplitMode>().notNull().default("EQUAL"),
     description: text("description"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => appUser.id),
@@ -121,6 +125,30 @@ export const expense = pgTable(
     projectDeletedIdx: index("expense_project_deleted_index").on(
       table.projectId,
       table.deletedAt
+    ),
+  })
+);
+
+export const expenseSplit = pgTable(
+  "expense_split",
+  {
+    expenseId: uuid("expense_id")
+      .notNull()
+      .references(() => expense.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participant.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 18, scale: 2 }),
+    shares: numeric("shares", { precision: 18, scale: 6 }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.expenseId, table.participantId] }),
+    expenseIdx: index("expense_split_expense_index").on(table.expenseId),
+    participantIdx: index("expense_split_participant_index").on(
+      table.participantId
     ),
   })
 );

@@ -82,9 +82,20 @@ query ProjectExpenses(
     }
     amount
     currency
+    splitMode
     description
+    occurredAt
     createdAt
     updatedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
   }
 }
 
@@ -139,6 +150,9 @@ mutation CreateExpense(
   $amount: Float!
   $currency: Currency!
   $description: String
+  $occurredAt: String
+  $splitMode: SplitMode
+  $splits: [ExpenseSplitInput!]
 ) {
   createExpense(
     projectId: $projectId
@@ -146,6 +160,9 @@ mutation CreateExpense(
     amount: $amount
     currency: $currency
     description: $description
+    occurredAt: $occurredAt
+    splitMode: $splitMode
+    splits: $splits
   ) {
     id
     projectId
@@ -156,9 +173,20 @@ mutation CreateExpense(
     }
     amount
     currency
+    splitMode
     description
+    occurredAt
     createdAt
     updatedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
   }
 }
 

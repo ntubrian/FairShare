@@ -1,10 +1,17 @@
 import { Field, Float, ID, Int, ObjectType } from "type-graphql";
-import { Currency, MemberRole, ProjectStatus, RateSource } from "../types";
+import {
+  Currency,
+  MemberRole,
+  ProjectStatus,
+  RateSource,
+  SplitMode,
+} from "../types";
 import {
   CurrencyEnum,
   MemberRoleEnum,
   ProjectStatusEnum,
   RateSourceEnum,
+  SplitModeEnum,
 } from "./enums";
 
 @ObjectType()
@@ -90,8 +97,14 @@ export class Expense {
   @Field(() => CurrencyEnum)
   currency!: Currency;
 
+  @Field(() => SplitModeEnum)
+  splitMode!: SplitMode;
+
   @Field(() => String, { nullable: true })
   description!: string | null;
+
+  @Field(() => String)
+  occurredAt!: string;
 
   @Field(() => String)
   createdAt!: string;
@@ -101,6 +114,24 @@ export class Expense {
 
   @Field(() => String, { nullable: true })
   deletedAt!: string | null;
+
+  @Field(() => [ExpenseSplit])
+  splits!: ExpenseSplit[];
+}
+
+@ObjectType()
+export class ExpenseSplit {
+  @Field(() => ID)
+  participantId!: string;
+
+  @Field(() => Participant, { nullable: true })
+  participant!: Participant | null;
+
+  @Field(() => Float, { nullable: true })
+  amount!: number | null;
+
+  @Field(() => Float, { nullable: true })
+  shares!: number | null;
 }
 
 @ObjectType()

@@ -1,8 +1,12 @@
 import { appError } from "../lib/errors";
-import { expenseRepository } from "../repositories/expenseRepository";
+import {
+  expenseRepository,
+  ExpenseRow,
+  ExpenseSplitRow,
+} from "../repositories/expenseRepository";
 import { participantRepository } from "../repositories/participantRepository";
 import { projectRepository } from "../repositories/projectRepository";
-import { Currency, GraphQLContext } from "../types";
+import { Currency, GraphQLContext, SplitMode } from "../types";
 import { assertCurrency, roundMoney } from "./domainUtils";
 import { projectService } from "./projectService";
 
@@ -14,6 +18,13 @@ type GraphQLParticipant = {
   createdAt: string;
 };
 
+type GraphQLExpenseSplit = {
+  participantId: string;
+  participant: GraphQLParticipant | null;
+  amount: number | null;
+  shares: number | null;
+};
+
 type GraphQLExpense = {
   id: string;
   projectId: string;
@@ -21,10 +32,25 @@ type GraphQLExpense = {
   payer: GraphQLParticipant | null;
   amount: number;
   currency: Currency;
+  splitMode: SplitMode;
   description: string | null;
+  occurredAt: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  splits: GraphQLExpenseSplit[];
+};
+
+type SplitInput = {
+  participantId: string;
+  amount?: number | null;
+  shares?: number | null;
+};
+
+type NormalizedSplit = {
+  participantId: string;
+  amount: number | null;
+  shares: number | null;
 };
 
 const toParticipant = (row: {
@@ -41,35 +67,71 @@ const toParticipant = (row: {
   createdAt: row.created_at,
 });
 
-const toExpense = (
-  row: {
-    id: string;
-    project_id: string;
-    payer_participant_id: string;
-    amount: string;
-    currency: Currency;
-    description: string | null;
-    created_at: string;
-    updated_at: string;
-    deleted_at: string | null;
-  },
+const toSplit = (
+  row: ExpenseSplitRow,
   participantsById: Map<string, GraphQLParticipant>
-): GraphQLExpense => ({
-  id: row.id,
-  projectId: row.project_id,
-  payerId: row.payer_participant_id,
-  payer: participantsById.get(row.payer_participant_id) ?? null,
-  amount: Number(row.amount),
-  currency: row.currency,
-  description: row.description,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-  deletedAt: row.deleted_at,
+): GraphQLExpenseSplit => ({
+  participantId: row.participant_id,
+  participant: participantsById.get(row.participant_id) ?? null,
+  amount: row.amount === null ? null : Number(row.amount),
+  shares: row.shares === null ? null : Number(row.shares),
 });
+
+const buildSplitMap = (
+  rows: ExpenseSplitRow[],
+  participantsById: Map<string, GraphQLParticipant>
+) => {
+  const mapped = new Map<string, GraphQLExpenseSplit[]>();
+  for (const row of rows) {
+    const current = mapped.get(row.expense_id) ?? [];
+    current.push(toSplit(row, participantsById));
+    mapped.set(row.expense_id, current);
+  }
+  return mapped;
+};
+
+const toExpense = (
+  row: ExpenseRow,
+  participantsById: Map<string, GraphQLParticipant>,
+  splitsByExpenseId: Map<string, GraphQLExpenseSplit[]>
+): GraphQLExpense => {
+  const explicitSplits = splitsByExpenseId.get(row.id) ?? [];
+  const fallbackEqualSplits =
+    explicitSplits.length === 0 && row.split_mode === "EQUAL"
+      ? Array.from(participantsById.values()).map((participant) => ({
+          participantId: participant.id,
+          participant,
+          amount: null,
+          shares: null,
+        }))
+      : explicitSplits;
+
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    payerId: row.payer_participant_id,
+    payer: participantsById.get(row.payer_participant_id) ?? null,
+    amount: Number(row.amount),
+    currency: row.currency,
+    splitMode: row.split_mode,
+    description: row.description,
+    occurredAt: row.occurred_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    splits: fallbackEqualSplits,
+  };
+};
 
 const requirePositiveAmount = (amount: number) => {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw appError("Amount must be greater than 0.", "BAD_USER_INPUT");
+  }
+};
+
+const requirePositiveShares = (shares: number) => {
+  if (!Number.isFinite(shares) || shares <= 0) {
+    throw appError("Shares must be greater than 0.", "BAD_USER_INPUT");
   }
 };
 
@@ -82,6 +144,140 @@ const normalizeDescription = (description: string | null | undefined) => {
   }
   const trimmed = description.trim();
   return trimmed || null;
+};
+
+const normalizeOccurredAt = (
+  occurredAt: string | null | undefined
+): string | undefined => {
+  if (
+    occurredAt === undefined ||
+    occurredAt === null ||
+    occurredAt.trim() === ""
+  ) {
+    return undefined;
+  }
+  const parsed = new Date(occurredAt);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw appError("Invalid expense date.", "BAD_USER_INPUT");
+  }
+  return parsed.toISOString();
+};
+
+const normalizeSplitInputs = (
+  splitMode: SplitMode,
+  amount: number,
+  participants: GraphQLParticipant[],
+  splitInputs: SplitInput[] | null | undefined,
+  requireExplicitSplits: boolean
+): NormalizedSplit[] => {
+  const participantsById = new Map(
+    participants.map((participant) => [participant.id, participant])
+  );
+
+  const providedSplits = splitInputs === null ? [] : splitInputs;
+  let selectedParticipantIds: string[] = [];
+
+  if (providedSplits && providedSplits.length > 0) {
+    const unique = new Set<string>();
+    for (const split of providedSplits) {
+      if (unique.has(split.participantId)) {
+        throw appError(
+          "Duplicate participant in expense splits.",
+          "BAD_USER_INPUT"
+        );
+      }
+      unique.add(split.participantId);
+      selectedParticipantIds.push(split.participantId);
+    }
+  } else if (!requireExplicitSplits && splitMode === "EQUAL") {
+    selectedParticipantIds = participants.map((participant) => participant.id);
+  }
+
+  if (!selectedParticipantIds.length) {
+    throw appError(
+      "At least one participant must be included in expense split.",
+      "BAD_USER_INPUT"
+    );
+  }
+
+  for (const participantId of selectedParticipantIds) {
+    if (!participantsById.has(participantId)) {
+      throw appError(
+        "Split participant must exist in participant list.",
+        "BAD_USER_INPUT"
+      );
+    }
+  }
+
+  if (splitMode === "EQUAL") {
+    return selectedParticipantIds.map((participantId) => ({
+      participantId,
+      amount: null,
+      shares: null,
+    }));
+  }
+
+  if (!providedSplits || providedSplits.length === 0) {
+    throw appError(
+      `Splits are required for ${splitMode} mode.`,
+      "BAD_USER_INPUT"
+    );
+  }
+
+  if (splitMode === "EXACT") {
+    const normalized = providedSplits.map((split) => {
+      const splitAmount = split.amount;
+      if (typeof splitAmount !== "number") {
+        throw appError(
+          "Exact split requires amount for each participant.",
+          "BAD_USER_INPUT"
+        );
+      }
+      requirePositiveAmount(splitAmount);
+      return {
+        participantId: split.participantId,
+        amount: roundMoney(splitAmount),
+        shares: null,
+      } as const;
+    });
+
+    const sum = roundMoney(
+      normalized.reduce((total, split) => total + (split.amount ?? 0), 0)
+    );
+    if (Math.abs(roundMoney(sum - amount)) > 0.01) {
+      throw appError(
+        "Exact split amounts must equal total expense amount.",
+        "BAD_USER_INPUT"
+      );
+    }
+    return normalized;
+  }
+
+  const normalized = providedSplits.map((split) => {
+    const shares = split.shares;
+    if (typeof shares !== "number") {
+      throw appError(
+        "Shares split requires shares for each participant.",
+        "BAD_USER_INPUT"
+      );
+    }
+    requirePositiveShares(shares);
+    return {
+      participantId: split.participantId,
+      amount: null,
+      shares: roundMoney(shares, 6),
+    } as const;
+  });
+
+  const totalShares = normalized.reduce(
+    (total, split) => total + (split.shares ?? 0),
+    0
+  );
+  if (totalShares <= 0) {
+    throw appError("Total shares must be greater than 0.", "BAD_USER_INPUT");
+  }
+
+  return normalized;
 };
 
 export const expenseService = {
@@ -98,6 +294,7 @@ export const expenseService = {
       options?.pageSize && options.pageSize > 0
         ? Math.min(100, Math.floor(options.pageSize))
         : undefined;
+
     const [participants, expenses] = await Promise.all([
       participantRepository.listByProject(projectId),
       expenseRepository.listByProject(projectId, includeDeleted, {
@@ -105,11 +302,19 @@ export const expenseService = {
         pageSize,
       }),
     ]);
+
     const mappedParticipants = participants.map(toParticipant);
     const participantsById = new Map(
       mappedParticipants.map((participant) => [participant.id, participant])
     );
-    return expenses.map((expense) => toExpense(expense, participantsById));
+    const splitRows = await expenseRepository.listSplitsByExpenseIds(
+      expenses.map((expense) => expense.id)
+    );
+    const splitsByExpenseId = buildSplitMap(splitRows, participantsById);
+
+    return expenses.map((expense) =>
+      toExpense(expense, participantsById, splitsByExpenseId)
+    );
   },
 
   async createExpense(
@@ -119,6 +324,9 @@ export const expenseService = {
       amount: number;
       currency: Currency;
       description?: string | null;
+      occurredAt?: string | null;
+      splitMode?: SplitMode;
+      splits?: SplitInput[] | null;
     },
     context: GraphQLContext
   ) {
@@ -126,6 +334,10 @@ export const expenseService = {
     await projectService.ensureEditable(input.projectId, context);
     requirePositiveAmount(input.amount);
     assertCurrency(input.currency);
+    const occurredAt =
+      normalizeOccurredAt(input.occurredAt) ?? new Date().toISOString();
+    const splitMode = input.splitMode ?? "EQUAL";
+
     return projectRepository.withProjectWriteLock(
       input.projectId,
       async (tx) => {
@@ -141,20 +353,46 @@ export const expenseService = {
           );
         }
 
+        const participants = await participantRepository.listByProject(
+          input.projectId,
+          undefined,
+          tx
+        );
+        const mappedParticipants = participants.map(toParticipant);
+        const participantsById = new Map(
+          mappedParticipants.map((participant) => [participant.id, participant])
+        );
+        const normalizedSplits = normalizeSplitInputs(
+          splitMode,
+          roundMoney(input.amount),
+          mappedParticipants,
+          input.splits,
+          false
+        );
+
         const created = await expenseRepository.add(
           {
             projectId: input.projectId,
             payerParticipantId: input.payerId,
             amount: roundMoney(input.amount),
             currency: input.currency,
+            splitMode,
             description: normalizeDescription(input.description) ?? null,
+            occurredAt,
             createdBy: viewer.id,
           },
           tx
         );
+
+        await expenseRepository.replaceSplits(created.id, normalizedSplits, tx);
         await projectRepository.touchProject(input.projectId, tx);
-        const mappedPayer = toParticipant(payer);
-        return toExpense(created, new Map([[mappedPayer.id, mappedPayer]]));
+
+        const splitRows = await expenseRepository.listSplitsByExpenseIds(
+          [created.id],
+          tx
+        );
+        const splitsByExpenseId = buildSplitMap(splitRows, participantsById);
+        return toExpense(created, participantsById, splitsByExpenseId);
       }
     );
   },
@@ -167,6 +405,9 @@ export const expenseService = {
       amount?: number | null;
       currency?: Currency | null;
       description?: string | null;
+      occurredAt?: string | null;
+      splitMode?: SplitMode | null;
+      splits?: SplitInput[] | null;
     },
     context: GraphQLContext
   ) {
@@ -199,7 +440,7 @@ export const expenseService = {
           payerParticipantId = input.payerId;
         }
 
-        let amount: number | undefined;
+        let amount = Number(current.amount);
         if (typeof input.amount === "number") {
           requirePositiveAmount(input.amount);
           amount = roundMoney(input.amount);
@@ -210,14 +451,52 @@ export const expenseService = {
           currency = assertCurrency(input.currency);
         }
 
+        const normalizedOccurredAt = normalizeOccurredAt(input.occurredAt);
+        const targetSplitMode = (input.splitMode ??
+          current.split_mode) as SplitMode;
+        const shouldRebuildSplits =
+          input.splits !== undefined ||
+          input.splitMode !== undefined ||
+          (typeof input.amount === "number" && targetSplitMode === "EXACT");
+
+        const participants = await participantRepository.listByProject(
+          input.projectId,
+          undefined,
+          tx
+        );
+        const mappedParticipants = participants.map(toParticipant);
+        const participantsById = new Map(
+          mappedParticipants.map((participant) => [participant.id, participant])
+        );
+
+        if (shouldRebuildSplits) {
+          const normalizedSplits = normalizeSplitInputs(
+            targetSplitMode,
+            amount,
+            mappedParticipants,
+            input.splits,
+            targetSplitMode !== "EQUAL"
+          );
+          await expenseRepository.replaceSplits(
+            input.expenseId,
+            normalizedSplits,
+            tx
+          );
+        }
+
         const updated = await expenseRepository.update(
           input.projectId,
           input.expenseId,
           {
             payerParticipantId,
-            amount,
+            amount: typeof input.amount === "number" ? amount : undefined,
             currency,
+            splitMode:
+              input.splitMode === undefined || input.splitMode === null
+                ? undefined
+                : targetSplitMode,
             description: normalizeDescription(input.description),
+            occurredAt: normalizedOccurredAt,
           },
           tx
         );
@@ -226,18 +505,12 @@ export const expenseService = {
         }
 
         await projectRepository.touchProject(input.projectId, tx);
-        const participants = await participantRepository.listByProject(
-          input.projectId,
-          undefined,
+        const splitRows = await expenseRepository.listSplitsByExpenseIds(
+          [updated.id],
           tx
         );
-        const participantsById = new Map(
-          participants.map((participant) => {
-            const mapped = toParticipant(participant);
-            return [mapped.id, mapped] as const;
-          })
-        );
-        return toExpense(updated, participantsById);
+        const splitsByExpenseId = buildSplitMap(splitRows, participantsById);
+        return toExpense(updated, participantsById, splitsByExpenseId);
       }
     );
   },
@@ -263,13 +536,16 @@ export const expenseService = {
         undefined,
         tx
       );
+      const mappedParticipants = participants.map(toParticipant);
       const participantsById = new Map(
-        participants.map((participant) => {
-          const mapped = toParticipant(participant);
-          return [mapped.id, mapped] as const;
-        })
+        mappedParticipants.map((participant) => [participant.id, participant])
       );
-      return toExpense(updated, participantsById);
+      const splitRows = await expenseRepository.listSplitsByExpenseIds(
+        [updated.id],
+        tx
+      );
+      const splitsByExpenseId = buildSplitMap(splitRows, participantsById);
+      return toExpense(updated, participantsById, splitsByExpenseId);
     });
   },
 
@@ -290,13 +566,16 @@ export const expenseService = {
         undefined,
         tx
       );
+      const mappedParticipants = participants.map(toParticipant);
       const participantsById = new Map(
-        participants.map((participant) => {
-          const mapped = toParticipant(participant);
-          return [mapped.id, mapped] as const;
-        })
+        mappedParticipants.map((participant) => [participant.id, participant])
       );
-      return toExpense(updated, participantsById);
+      const splitRows = await expenseRepository.listSplitsByExpenseIds(
+        [updated.id],
+        tx
+      );
+      const splitsByExpenseId = buildSplitMap(splitRows, participantsById);
+      return toExpense(updated, participantsById, splitsByExpenseId);
     });
   },
 };
