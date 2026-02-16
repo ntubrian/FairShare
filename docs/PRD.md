@@ -49,17 +49,41 @@
 
 ## 5. Roles and Permissions
 
-| Action                                                         | Owner | Editor | Viewer |
-| -------------------------------------------------------------- | ----- | ------ | ------ |
-| View project/expenses/settlement                               | Yes   | Yes    | Yes    |
-| Create project                                                 | Yes   | Yes    | No     |
-| Manage project settings (name, target currency, rate strategy) | Yes   | Yes    | No     |
-| Manage participants                                            | Yes   | Yes    | No     |
-| Create/edit expenses                                           | Yes   | Yes    | No     |
-| Soft delete/restore expenses                                   | Yes   | Yes    | No     |
-| Trigger settlement                                             | Yes   | Yes    | Yes    |
-| Export PDF                                                     | Yes   | Yes    | Yes    |
-| Manage role permissions                                        | Yes   | No     | No     |
+### 5.1 Role Layering (both are required)
+
+- **App-level role (Account Role)**: the user's global identity across the product, stored in `app_user.app_role`.
+- **Project-level role (Project Role)**: the user's membership role inside one project, stored in `project_member.role`.
+- They are separate dimensions and **must not override each other**. The same user can be global `EDITOR` and project `OWNER` at the same time.
+
+### 5.2 App-level responsibilities
+
+| Action                        | Owner                               | Editor                              | Viewer                              |
+| ----------------------------- | ----------------------------------- | ----------------------------------- | ----------------------------------- |
+| Sign in                       | Yes                                 | Yes                                 | Yes                                 |
+| Access own profile (`viewer`) | Yes                                 | Yes                                 | Yes                                 |
+| Create project                | Yes                                 | Yes                                 | No                                  |
+| Access project data           | Requires membership in that project | Requires membership in that project | Requires membership in that project |
+
+### 5.3 Project-level responsibilities
+
+| Action                                                         | Owner   | Editor  | Viewer  |
+| -------------------------------------------------------------- | ------- | ------- | ------- |
+| View project/expenses/settlement                               | Yes     | Yes     | Yes     |
+| Create project (checked at app level)                          | See 5.2 | See 5.2 | See 5.2 |
+| Manage project settings (name, target currency, rate strategy) | Yes     | Yes     | No      |
+| Manage participants                                            | Yes     | Yes     | No      |
+| Create/edit expenses                                           | Yes     | Yes     | No      |
+| Soft delete/restore expenses                                   | Yes     | Yes     | No      |
+| Trigger settlement                                             | Yes     | Yes     | Yes     |
+| Export PDF                                                     | Yes     | Yes     | Yes     |
+| Manage role permissions                                        | Yes     | No      | No      |
+
+### 5.4 Permission evaluation order (implementation contract)
+
+1. Unauthenticated users: deny all protected operations.
+2. App-level check: evaluate global capabilities (for example, create project).
+3. Project-level check: for all project-scoped operations, first verify membership, then evaluate project role permissions.
+4. UI semantics: `accountRole` and `viewerRole` may both be shown to avoid user confusion.
 
 ## 6. User Story Flow
 

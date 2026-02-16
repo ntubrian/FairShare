@@ -3,6 +3,10 @@
 This policy follows `docs/PRD.md` role rules:
 
 - Unauthenticated users cannot access project data.
+- Role model is two-layer:
+  - **App-level role** (`app_user.app_role`): global capability such as project creation.
+  - **Project-level role** (`project_member.role`): project-scoped capability such as editing expenses or managing members.
+  - These two roles are independent. A user can be global `EDITOR` and project `OWNER` at the same time.
 - Project role matrix:
   - `OWNER`: full access, including member role management.
   - `EDITOR`: can manage project settings, participants, expenses.
@@ -17,6 +21,7 @@ This policy follows `docs/PRD.md` role rules:
    - `withAuth`: blocks unauthenticated requests before resolver execution.
    - `withPublic`: allows public access.
 2. **Service-level authorization** (`server/services/*.ts`)
+   - App-level checks enforce global capability (`createProject`).
    - `ensureReadable`, `ensureEditable`, `ensureOwned` enforce project role checks.
 3. **Repository layer**
    - only data access, no authorization logic.
@@ -33,6 +38,7 @@ This policy follows `docs/PRD.md` role rules:
 ## Operation mapping
 
 ### Query
+
 - Public:
   - `health`
   - `detectLocale`
@@ -49,6 +55,7 @@ This policy follows `docs/PRD.md` role rules:
   - `pdfExportPreview`
 
 ### Mutation
+
 - Auth required:
   - all mutations
 - Additional role checks in service:
