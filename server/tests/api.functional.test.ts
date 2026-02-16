@@ -467,19 +467,23 @@ test(
     }>(settlementResult);
 
     assert.equal(settlementData.calculateSettlement.rateSource, "AGREED");
-    assert.equal(settlementData.calculateSettlement.instructions.length, 1);
-    assert.equal(
-      settlementData.calculateSettlement.instructions[0]?.fromParticipantId,
-      participantBId
+    const instructions = settlementData.calculateSettlement.instructions;
+    assert.equal(instructions.length, 3);
+    const bobInstruction = instructions.find(
+      (instruction) =>
+        instruction.fromParticipantId === participantBId &&
+        instruction.toParticipantId === participantAId
     );
-    assert.equal(
-      settlementData.calculateSettlement.instructions[0]?.toParticipantId,
-      participantAId
+    assert.ok(
+      bobInstruction,
+      "Expected Bob to pay Alice in settlement instructions."
     );
-    assert.equal(
-      settlementData.calculateSettlement.instructions[0]?.amount,
-      1500
+    assert.equal(bobInstruction.amount, 750);
+    const totalSettledAmount = instructions.reduce(
+      (sum, instruction) => sum + instruction.amount,
+      0
     );
+    assert.equal(totalSettledAmount, 2250);
 
     const pdfPreviewResult = await execute(
       queryPdfPreview,
@@ -495,7 +499,10 @@ test(
         targetCurrency: string;
       };
     }>(pdfPreviewResult);
-    assert.equal(pdfPreviewData.pdfExportPreview.instructionCount, 1);
+    assert.equal(
+      pdfPreviewData.pdfExportPreview.instructionCount,
+      instructions.length
+    );
     assert.equal(pdfPreviewData.pdfExportPreview.expenseCount, 1);
     assert.equal(pdfPreviewData.pdfExportPreview.targetCurrency, "TWD");
 

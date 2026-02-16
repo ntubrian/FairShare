@@ -6,7 +6,36 @@ import { MemberRole } from "../types";
 const toGlobalProfileCode = (role: MemberRole) => `GLOBAL_${role}` as const;
 const toProjectProfileCode = (role: MemberRole) => `PROJECT_${role}` as const;
 
+const SYSTEM_PROFILES: Array<{
+  code: string;
+  scope: "GLOBAL" | "PROJECT";
+  displayName: string;
+}> = [
+  { code: "GLOBAL_OWNER", scope: "GLOBAL", displayName: "Global Owner" },
+  { code: "GLOBAL_EDITOR", scope: "GLOBAL", displayName: "Global Editor" },
+  { code: "GLOBAL_VIEWER", scope: "GLOBAL", displayName: "Global Viewer" },
+  { code: "PROJECT_OWNER", scope: "PROJECT", displayName: "Project Owner" },
+  { code: "PROJECT_EDITOR", scope: "PROJECT", displayName: "Project Editor" },
+  { code: "PROJECT_VIEWER", scope: "PROJECT", displayName: "Project Viewer" },
+];
+
+const ensureSystemProfiles = async () => {
+  const db = getDb();
+  await db
+    .insert(authProfile)
+    .values(
+      SYSTEM_PROFILES.map((profile) => ({
+        code: profile.code,
+        scope: profile.scope,
+        displayName: profile.displayName,
+        isSystem: true,
+      }))
+    )
+    .onConflictDoNothing();
+};
+
 const listProfilesByScope = async (scope: "GLOBAL" | "PROJECT") => {
+  await ensureSystemProfiles();
   const db = getDb();
   return db
     .select({
