@@ -8,6 +8,7 @@ import { HttpLink } from "@apollo/client/link/http";
 const GOOGLE_TOKEN_KEY = "fairshare.googleIdToken";
 const DEV_USER_ID_KEY = "fairshare.devUserId";
 const looksLikeJwt = (value: string) => value.split(".").length === 3;
+const TOKEN_EXP_SKEW_SECONDS = 30;
 
 const resolveGraphQLEndpoint = () => {
   const configuredEndpoint = process.env.REACT_APP_GRAPHQL_ENDPOINT;
@@ -67,9 +68,51 @@ const readConfiguredGoogleIdToken = () => {
 const readConfiguredDevUserId = () =>
   process.env.REACT_APP_DEV_USER_ID?.trim() ?? "";
 
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  const segments = token.split(".");
+  const payload = segments[1];
+  if (!payload) {
+    return null;
+  }
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+
+  try {
+    const decoded =
+      typeof window !== "undefined" && typeof window.atob === "function"
+        ? window.atob(padded)
+        : Buffer.from(padded, "base64").toString("utf8");
+    const parsed = JSON.parse(decoded);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const isJwtExpired = (token: string) => {
+  const payload = decodeJwtPayload(token);
+  const exp = payload?.exp;
+  if (typeof exp !== "number") {
+    return false;
+  }
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return exp <= nowSeconds + TOKEN_EXP_SKEW_SECONDS;
+};
+
 const readRuntimeGoogleIdToken = () => {
   const token = readStorage(GOOGLE_TOKEN_KEY).trim();
-  return looksLikeJwt(token) ? token : "";
+  if (!looksLikeJwt(token)) {
+    return "";
+  }
+  if (isJwtExpired(token)) {
+    removeStorage(GOOGLE_TOKEN_KEY);
+    return "";
+  }
+  return token;
 };
 
 const readRuntimeDevUserId = () => readStorage(DEV_USER_ID_KEY).trim();

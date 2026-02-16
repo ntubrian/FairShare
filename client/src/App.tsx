@@ -563,6 +563,7 @@ export default function App() {
       setLastSyncedAt(null);
       setConsumedInviteCode("");
       setJoinFeedback(null);
+      setError("Session expired. Please sign in with Google again.");
       navigate("/auth", { replace: true });
       await apolloClient.clearStore();
     };

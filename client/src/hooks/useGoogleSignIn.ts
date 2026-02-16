@@ -11,12 +11,14 @@ declare global {
         id: {
           initialize: (options: {
             client_id: string;
+            auto_select?: boolean;
             callback: (response: GoogleCredentialResponse) => void;
           }) => void;
           renderButton: (
             parent: HTMLElement,
             options: Record<string, string | number | boolean>
           ) => void;
+          prompt: () => void;
         };
       };
     };
@@ -60,6 +62,7 @@ export const useGoogleSignIn = ({
     }
 
     let cancelled = false;
+    let promptRequested = false;
     let retryTimer: number | undefined;
     let timeoutTimer: number | undefined;
 
@@ -98,6 +101,7 @@ export const useGoogleSignIn = ({
         targetElement.innerHTML = "";
         window.google.accounts.id.initialize({
           client_id: clientId,
+          auto_select: true,
           callback: async (response) => {
             if (!response.credential) {
               if (!cancelled) {
@@ -127,6 +131,10 @@ export const useGoogleSignIn = ({
           shape: "pill",
           width: 280,
         });
+        if (!promptRequested) {
+          promptRequested = true;
+          window.google.accounts.id.prompt();
+        }
         setGoogleReady(true);
         setGoogleError(null);
         return true;
