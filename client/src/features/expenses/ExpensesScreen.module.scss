@@ -1,329 +1,347 @@
 .screen {
-    width: min(760px, 100%);
-    margin: 0 auto;
-    padding: 18px 14px 90px;
-    display: grid;
-    gap: 14px;
-    position: relative;
-  }
-  
-  .headerCard {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 12px;
-  }
-  
-  .backButton {
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 14px;
-    border: 1px solid var(--border-default);
-    background: var(--surface-card);
-    color: var(--text-primary);
-  }
-  
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 18px 14px 90px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+}
+
+.headerCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+}
+
+.backButton {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.headerTitle h1 {
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.headerTitle p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.headerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.syncButton {
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-card-alt);
+  color: var(--text-secondary);
+}
+
+.avatarButton {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #c8d7a8;
+  background: #dce9b9;
+  color: #2f7a6a;
+  font-weight: 700;
+}
+
+.filterRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.filterField {
+  display: grid;
+  gap: 6px;
+}
+
+.filterField span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.summaryCard {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.summaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summaryHeader h2 {
+  font-size: 18px;
+}
+
+.summaryHeader span {
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-card-alt);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.readOnlyHint {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-alt);
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.summaryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.summaryItem {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.summaryItem strong {
+  display: block;
+}
+
+.summaryItem p {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.summaryValues {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.creditValue {
+  color: #166534;
+  font-weight: 700;
+}
+
+.debitValue {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.expenseList {
+  display: grid;
+  gap: 12px;
+}
+
+.dayCard {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+}
+
+.dayCard h3 {
+  font-size: 20px;
+}
+
+.dayItems {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.expenseItem {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.expenseItem p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+.expenseAmount {
+  text-align: right;
+}
+
+.expenseAmount strong {
+  display: block;
+  font-size: 24px;
+}
+
+.expenseAmount p {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currencyChip {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-card-alt);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+}
+
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  border: none;
+  background: var(--brand-primary);
+  font-size: 34px;
+  line-height: 1;
+  box-shadow: var(--shadow-card);
+}
+
+.fab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(9, 15, 25, 0.52);
+  display: grid;
+  place-items: end center;
+  padding: 10px;
+}
+
+.modal {
+  width: min(640px, 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: 22px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalHeader h3 {
+  font-size: 26px;
+}
+
+.closeButton {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: #f4f3ee;
+  color: var(--text-primary);
+}
+
+.modal label {
+  display: grid;
+  gap: 6px;
+}
+
+.modal label span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.currencyButtons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.currencyButton {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-secondary);
+  min-height: 38px;
+}
+
+.currencyButtonActive {
+  border-color: #2e7d6b;
+  background: #2e7d6b;
+  color: #fff;
+}
+
+.currencyButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.errorBanner {
+  border: 1px solid #f7b3b3;
+  border-radius: var(--radius-md);
+  background: var(--error-bg);
+  color: var(--error-fg);
+  padding: 10px 12px;
+}
+
+.emptyText {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 760px) {
   .headerTitle h1 {
-    font-size: 30px;
-    line-height: 1.15;
+    font-size: 22px;
   }
-  
-  .headerTitle p {
-    margin-top: 4px;
-    color: var(--text-secondary);
-    font-size: 14px;
-  }
-  
-  .headerActions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .syncButton {
-    min-height: 36px;
-    border-radius: 999px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-card-alt);
-    color: var(--text-secondary);
-  }
-  
-  .avatarButton {
-    width: 38px;
-    height: 38px;
-    border-radius: 999px;
-    border: 1px solid #c8d7a8;
-    background: #dce9b9;
-    color: #2f7a6a;
-    font-weight: 700;
-  }
-  
+
   .filterRow {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: 1fr;
   }
-  
-  .filterField {
-    display: grid;
-    gap: 6px;
-  }
-  
-  .filterField span {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 700;
-  }
-  
-  .summaryCard {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 12px;
-    display: grid;
-    gap: 12px;
-  }
-  
-  .summaryHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .summaryHeader h2 {
-    font-size: 18px;
-  }
-  
-  .summaryHeader span {
-    border-radius: 999px;
-    border: 1px solid var(--border-default);
-    background: var(--surface-card-alt);
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  
-  .summaryList {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 8px;
-  }
-  
-  .summaryItem {
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    padding: 10px;
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: center;
-  }
-  
-  .summaryItem strong {
-    display: block;
-  }
-  
-  .summaryItem p {
-    margin-top: 2px;
-    color: var(--text-secondary);
-    font-size: 12px;
-  }
-  
-  .summaryValues {
-    display: grid;
-    justify-items: end;
-    gap: 2px;
-  }
-  
-  .creditValue {
-    color: #166534;
-    font-weight: 700;
-  }
-  
-  .debitValue {
-    color: #b42318;
-    font-weight: 700;
-  }
-  
-  .expenseList {
-    display: grid;
-    gap: 12px;
-  }
-  
-  .dayCard {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 12px;
-  }
-  
-  .dayCard h3 {
+
+  .expenseAmount strong {
     font-size: 20px;
   }
-  
-  .dayItems {
-    margin-top: 10px;
-    display: grid;
-    gap: 10px;
-  }
-  
-  .expenseItem {
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    background: #fff;
-    padding: 12px;
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  
-  .expenseItem p {
-    margin-top: 4px;
-    color: var(--text-secondary);
-  }
-  
-  .expenseAmount {
-    text-align: right;
-  }
-  
-  .expenseAmount strong {
-    display: block;
-    font-size: 24px;
-  }
-  
-  .expenseAmount p {
-    margin-top: 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .currencyChip {
-    border: 1px solid var(--border-soft);
-    border-radius: 999px;
-    background: var(--surface-card-alt);
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 700;
-    padding: 3px 10px;
-  }
-  
-  .fab {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-    border: none;
-    background: var(--brand-primary);
-    font-size: 34px;
-    line-height: 1;
-    box-shadow: var(--shadow-card);
-  }
-  
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(9, 15, 25, 0.52);
-    display: grid;
-    place-items: end center;
-    padding: 10px;
-  }
-  
-  .modal {
-    width: min(640px, 100%);
-    border: 1px solid var(--border-soft);
-    border-radius: 22px;
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 14px;
-    display: grid;
-    gap: 10px;
-  }
-  
-  .modalHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .modalHeader h3 {
-    font-size: 26px;
-  }
-  
-  .closeButton {
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 999px;
-    border: 1px solid var(--border-default);
-    background: #f4f3ee;
-    color: var(--text-primary);
-  }
-  
-  .modal label {
-    display: grid;
-    gap: 6px;
-  }
-  
-  .modal label span {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 700;
-  }
-  
-  .currencyButtons {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-  }
-  
-  .currencyButton {
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: var(--text-secondary);
-    min-height: 38px;
-  }
-  
-  .currencyButtonActive {
-    border-color: #2e7d6b;
-    background: #2e7d6b;
-    color: #fff;
-  }
-  
-  .errorBanner {
-    border: 1px solid #f7b3b3;
-    border-radius: var(--radius-md);
-    background: var(--error-bg);
-    color: var(--error-fg);
-    padding: 10px 12px;
-  }
-  
-  .emptyText {
-    color: var(--text-secondary);
-  }
-  
-  @media (max-width: 760px) {
-    .headerTitle h1 {
-      font-size: 22px;
-    }
-  
-    .filterRow {
-      grid-template-columns: 1fr;
-    }
-  
-    .expenseAmount strong {
-      font-size: 20px;
-    }
-  }
-  
+}

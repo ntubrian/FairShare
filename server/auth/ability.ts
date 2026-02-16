@@ -74,10 +74,12 @@ export const defineProjectAbility = (
     }
   }
 
-  if (projectRole === "OWNER" && projectStatus !== "ARCHIVED") {
-    can("archive", "Project");
+  if (projectRole === "OWNER") {
     can("delete", "Project");
-    can("setRole", "Project");
+    if (projectStatus !== "ARCHIVED") {
+      can("archive", "Project");
+      can("setRole", "Project");
+    }
   }
 
   return build();

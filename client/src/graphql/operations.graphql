@@ -41,6 +41,10 @@ query ProjectDetail($projectId: ID!) {
     name
     targetCurrency
     status
+    members {
+      userId
+      role
+    }
   }
 }
 

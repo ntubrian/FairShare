@@ -700,6 +700,7 @@ export default function App() {
     return (
       <ExpensesScreen
         projectId={expenseProjectId}
+        viewerId={viewerData?.viewer.id ?? ""}
         viewerName={viewerData?.viewer.displayName ?? ""}
         onBack={() => navigate("/projects")}
         onLogout={onLogout}

@@ -1,12 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   CreateExpenseDocument,
   Currency,
   DebitCreditSummaryDocument,
+  MemberRole,
   ProjectDetailDocument,
   ProjectExpensesDocument,
   ProjectParticipantsDocument,
+  ProjectStatus,
 } from "../../graphql/generated";
 import { toFriendlyError } from "../../lib/errors";
 import { formatRelativeTime } from "../dashboard/utils";
@@ -21,6 +23,7 @@ const CURRENCY_OPTIONS = [
 
 type ExpensesScreenProps = {
   projectId: string;
+  viewerId: string;
   viewerName: string;
   onBack: () => void;
   onLogout: () => Promise<void> | void;
@@ -61,6 +64,7 @@ const formatAmount = (amount: number) => {
 
 export const ExpensesScreen = ({
   projectId,
+  viewerId,
   viewerName,
   onBack,
   onLogout,
@@ -116,6 +120,15 @@ export const ExpensesScreen = ({
   const expenses = expensesData?.expenses ?? [];
   const summary = summaryData?.debitCreditSummary;
   const project = projectData?.project;
+  const viewerProjectRole =
+    project?.members.find((member) => member.userId === viewerId)?.role ??
+    MemberRole.Viewer;
+  const isProjectArchived = project?.status === ProjectStatus.Archived;
+  const canMutate =
+    Boolean(project) &&
+    !isProjectArchived &&
+    (viewerProjectRole === MemberRole.Owner ||
+      viewerProjectRole === MemberRole.Editor);
 
   const refreshAll = async () => {
     setLocalError(null);
@@ -192,6 +205,10 @@ export const ExpensesScreen = ({
 
   const onSubmitExpense = async () => {
     setLocalError(null);
+    if (!canMutate) {
+      setLocalError("This project is read-only for your role.");
+      return;
+    }
     const amount = Number(form.amount);
     if (!form.payerId) {
       setLocalError("Please select a payer.");
@@ -222,6 +239,13 @@ export const ExpensesScreen = ({
 
   const isLoading =
     projectLoading || participantsLoading || expensesLoading || summaryLoading;
+  const disableMutationControls = createExpenseLoading || !canMutate;
+
+  useEffect(() => {
+    if (!canMutate && addOpen) {
+      setAddOpen(false);
+    }
+  }, [addOpen, canMutate]);
 
   return (
     <main className={styles.screen}>
@@ -295,6 +319,11 @@ export const ExpensesScreen = ({
           <h2>Debit / Credit Summary</h2>
           <span>{summary?.currency ?? project?.targetCurrency ?? "TWD"}</span>
         </div>
+        {!canMutate ? (
+          <p className={styles.readOnlyHint}>
+            Read-only project: expense creation is disabled for your role.
+          </p>
+        ) : null}
         {summary?.rows.length ? (
           <ul className={styles.summaryList}>
             {summary.rows.map((row) => (
@@ -357,6 +386,8 @@ export const ExpensesScreen = ({
         className={styles.fab}
         onClick={() => setAddOpen(true)}
         aria-label="Add expense"
+        disabled={!canMutate}
+        title={!canMutate ? "Read-only project" : undefined}
       >
         +
       </button>
@@ -387,6 +418,7 @@ export const ExpensesScreen = ({
               <span>Payer</span>
               <select
                 value={form.payerId}
+                disabled={disableMutationControls}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -408,6 +440,7 @@ export const ExpensesScreen = ({
                 value={form.amount}
                 inputMode="decimal"
                 placeholder="0.00"
+                disabled={disableMutationControls}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -428,6 +461,7 @@ export const ExpensesScreen = ({
                         ? styles.currencyButtonActive
                         : ""
                     }`}
+                    disabled={disableMutationControls}
                     onClick={() =>
                       setForm((current) => ({ ...current, currency }))
                     }
@@ -442,6 +476,7 @@ export const ExpensesScreen = ({
               <input
                 value={form.description}
                 placeholder="e.g., Team lunch"
+                disabled={disableMutationControls}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -452,7 +487,7 @@ export const ExpensesScreen = ({
             </label>
             <button
               type="button"
-              disabled={createExpenseLoading}
+              disabled={disableMutationControls}
               onClick={() => void onSubmitExpense()}
             >
               {createExpenseLoading ? "Saving..." : "Save Expense"}
