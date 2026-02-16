@@ -1,4 +1,8 @@
-import { AbilityBuilder, createMongoAbility, MongoAbility } from "@casl/ability";
+import {
+  AbilityBuilder,
+  createMongoAbility,
+  MongoAbility,
+} from "@casl/ability";
 import { appError } from "../lib/errors";
 import { MemberRole, ProjectStatus } from "../types";
 
@@ -26,10 +30,8 @@ export type AppSubject =
 
 export type AppAbility = MongoAbility<[AppAction, AppSubject]>;
 
-const createAbility = () => createMongoAbility<[AppAction, AppSubject]>([]);
-
 export const defineGlobalAbility = (appRole: MemberRole): AppAbility => {
-  const { can, build } = new AbilityBuilder<AppAbility>(createAbility);
+  const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
   can("read", "User");
   can("read", "Invite");
@@ -48,9 +50,9 @@ export const defineGlobalAbility = (appRole: MemberRole): AppAbility => {
 
 export const defineProjectAbility = (
   projectRole: MemberRole,
-  projectStatus: ProjectStatus,
+  projectStatus: ProjectStatus
 ): AppAbility => {
-  const { can, build } = new AbilityBuilder<AppAbility>(createAbility);
+  const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
   can("read", "Project");
   can("read", "Participant");
@@ -85,7 +87,7 @@ export const assertCan = (
   ability: AppAbility,
   action: AppAction,
   subject: AppSubject,
-  message: string,
+  message: string
 ) => {
   if (!ability.can(action, subject)) {
     throw appError(message, "FORBIDDEN");
