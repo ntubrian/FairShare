@@ -1,0 +1,337 @@
+.appShell {
+    width: min(980px, 100%);
+    margin: 0 auto;
+    padding: 20px 16px 72px;
+    display: grid;
+    gap: 14px;
+  }
+  
+  .authShell {
+    min-height: 100vh;
+    align-content: center;
+    max-width: 640px;
+  }
+  
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .authCard h1 {
+    margin-top: 6px;
+    font-size: 30px;
+    line-height: 38px;
+  }
+  
+  .authHeroCard {
+    display: grid;
+    gap: 16px;
+  }
+  
+  .authBrandRow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .authLogoMark {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #d6e6a8;
+    color: var(--brand-primary-strong);
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    font-size: 22px;
+    font-weight: 700;
+    position: relative;
+    line-height: 1;
+  }
+  
+  .authLogoMark i {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #efa150;
+  }
+  
+  .authBrandTitle {
+    font-size: 48px;
+    line-height: 1.1;
+    margin: 0;
+  }
+  
+  .authSubtitle {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 18px;
+  }
+  
+  .authHighlight {
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: #efe8de;
+    color: var(--text-secondary);
+    padding: 16px 20px;
+    font-size: 36px;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+  
+  .authCurrencyGrid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  
+  .authCurrencyGrid span {
+    min-height: 48px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--text-primary);
+    background: #fff;
+  }
+  
+  .authGoogleWrapCta {
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    background: #3a8a75;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .authGoogleWrapCta .hintLine {
+    color: #fef2f2;
+  }
+  
+  .hintLine {
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  
+  .errorInline {
+    margin-top: 8px;
+    color: var(--error-fg);
+    font-size: 13px;
+  }
+  
+  .authEntryActions {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  
+  .entryActionBtn {
+    min-height: 54px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: #fff;
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #efa150;
+  }
+  
+  .entryActionBtn:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+  }
+  
+  .ghostButton {
+    padding: 10px 12px;
+    background: var(--surface-card);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  
+  .authGuideBtn {
+    width: max-content;
+  }
+  
+  .devAuthDetails {
+    border: 1px dashed var(--border-soft);
+    border-radius: 12px;
+    padding: 10px;
+  }
+  
+  .devAuthDetails summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  
+  .devAuthForm {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  
+  .devAuthForm input {
+    flex: 1;
+    min-width: 220px;
+  }
+  
+  .authFooterLinks {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    color: var(--brand-primary-strong);
+  }
+  
+  .authFooterLinks a {
+    color: inherit;
+    text-decoration: none;
+  }
+  
+  .installGuideOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.38);
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    z-index: 60;
+  }
+  
+  .installGuideSheet {
+    width: min(560px, 100%);
+    max-height: 92vh;
+    overflow-y: auto;
+    border-radius: 24px;
+    border: 1px solid var(--border-soft);
+    background: #fffdf9;
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+  }
+  
+  .installGuideHeader {
+    display: flex;
+    justify-content: flex-start;
+  }
+  
+  .installGuideHero {
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    padding: 16px;
+    display: grid;
+    gap: 8px;
+  }
+  
+  .installGuideHero h2 {
+    font-size: 40px;
+    line-height: 1.1;
+  }
+  
+  .installGuideHero p {
+    color: var(--text-secondary);
+    font-size: 20px;
+    line-height: 1.45;
+  }
+  
+  .installGuideTags {
+    margin-top: 2px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .installGuideTags span {
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    padding: 6px 10px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    background: #fff;
+  }
+  
+  .installGuideBlock {
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    padding: 12px 14px;
+  }
+  
+  .installGuideBlock h3 {
+    margin: 0 0 10px;
+    font-size: 34px;
+  }
+  
+  .installGuideBlock ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--text-primary);
+    display: grid;
+    gap: 8px;
+    font-size: 26px;
+    line-height: 1.4;
+  }
+  
+  .installGuideFooter {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+  
+  @media (max-width: 760px) {
+    .authBrandTitle {
+      font-size: 44px;
+    }
+  
+    .authHighlight {
+      font-size: 18px;
+      padding: 12px 14px;
+    }
+  
+    .authCurrencyGrid span {
+      font-size: 28px;
+      min-height: 44px;
+    }
+  
+    .entryActionBtn {
+      font-size: 17px;
+      min-height: 50px;
+    }
+  
+    .installGuideHero h2 {
+      font-size: 26px;
+    }
+  
+    .installGuideHero p {
+      font-size: 15px;
+    }
+  
+    .installGuideBlock h3 {
+      font-size: 20px;
+    }
+  
+    .installGuideBlock ol {
+      font-size: 14px;
+    }
+  }
+  

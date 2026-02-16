@@ -1,0 +1,439 @@
+.appShell {
+    width: min(980px, 100%);
+    margin: 0 auto;
+    padding: 20px 16px 72px;
+    display: grid;
+    gap: 14px;
+  }
+  
+  .projectsShell {
+    width: min(760px, 100%);
+    padding-bottom: 112px;
+    position: relative;
+  }
+  
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .compactCard {
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  
+  .ghostButton {
+    padding: 10px 12px;
+    background: var(--surface-card);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  
+  .hintLine {
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  
+  .errorInline {
+    margin-top: 8px;
+    color: var(--error-fg);
+    font-size: 13px;
+  }
+  
+  .errorCard {
+    border: 1px solid #f7b3b3;
+    background: var(--error-bg);
+    color: var(--error-fg);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  
+  .sectionTitleRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .count {
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--surface-card-alt);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  
+  .empty {
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+  
+  .projectsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .projectsTitleWrap h1 {
+    font-size: 34px;
+    line-height: 1.15;
+  }
+  
+  .projectsHeaderActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .statusPill {
+    min-height: 38px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: #f6f3ea;
+    color: #2a4039;
+    font-weight: 700;
+    padding: 8px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .statusDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  
+  .statusDotOnline {
+    background: #2e8b70;
+  }
+  
+  .statusDotOffline {
+    background: #b42318;
+  }
+  
+  .avatarButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid #c8d7a8;
+    background: #dce9b9;
+    color: #2f7a6a;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  
+  .projectsToolbar {
+    display: grid;
+    gap: 10px;
+  }
+  
+  .joinTrigger {
+    min-height: 44px;
+  }
+  
+  .projectsListCard {
+    position: relative;
+  }
+  
+  .projectList {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  
+  .projectCard {
+    position: relative;
+    border: 1px solid #d6e0df;
+    background: #fefefe;
+    border-radius: 18px;
+    padding: 16px;
+  }
+  
+  .projectCardArchived {
+    opacity: 0.8;
+  }
+  
+  .projectCardMenu {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #7c8798;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+  
+  .projectCardMenu:hover {
+    background: #f5f6f8;
+  }
+  
+  .projectCardName {
+    font-size: 28px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  
+  .projectCardMeta {
+    color: var(--text-secondary);
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 14px;
+  }
+  
+  .projectCardTags {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .projectPill {
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    min-height: 30px;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+  }
+  
+  .projectPillCurrency {
+    background: #d8e6b6;
+    color: #24334d;
+  }
+  
+  .projectPillRole {
+    background: #fff;
+  }
+  
+  .roleOwner {
+    color: #2e7d6b;
+  }
+  
+  .roleEditor {
+    color: #207971;
+  }
+  
+  .roleViewer {
+    color: #4a5d73;
+  }
+  
+  .projectCardFoot {
+    margin-top: 10px;
+    color: #8b93a1;
+    font-size: 12px;
+  }
+  
+  .paginationRow {
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .paginationActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .pageIndicator {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  
+  .fabCreate {
+    position: fixed;
+    right: 24px;
+    bottom: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--brand-primary);
+    font-size: 30px;
+    line-height: 1;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .statusInline {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, auto));
+    gap: 10px 16px;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+  
+  .endpoint code {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #f2f4f7;
+    font-size: 12px;
+  }
+  
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 19, 32, 0.46);
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    padding: 14px;
+  }
+  
+  .sheet {
+    width: min(480px, 100%);
+    background: #fff;
+    border: 1px solid var(--border-soft);
+    border-radius: 22px;
+    box-shadow: var(--shadow-card);
+    padding: 12px;
+  }
+  
+  .sheetHandle {
+    width: 46px;
+    height: 4px;
+    border-radius: 999px;
+    background: #d4d8de;
+    margin: 0 auto 8px;
+  }
+  
+  .sheetHeader h3 {
+    font-size: 24px;
+  }
+  
+  .sheetActions {
+    margin-top: 12px;
+    display: grid;
+    gap: 8px;
+  }
+  
+  .sheetAction {
+    width: 100%;
+    text-align: left;
+    border-radius: 12px;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    color: var(--text-primary);
+    min-height: 44px;
+    padding: 10px 12px;
+    font-weight: 600;
+  }
+  
+  .sheetActionDanger {
+    color: #b42318;
+    border-color: #f2b8b5;
+  }
+  
+  .sheetFooter {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .modalCard {
+    width: min(520px, 100%);
+    background: #fff;
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    padding: 14px;
+  }
+  
+  .modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .iconButton {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border-default);
+    background: #f4f3ee;
+    color: var(--text-primary);
+    font-size: 22px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .form {
+    margin-top: 10px;
+    display: grid;
+    gap: 10px;
+  }
+  
+  .form label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  
+  .switchRow {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .switchRow input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+  
+  .modalFooter {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  
+  .dangerButton {
+    border-color: #f2b8b5;
+    background: #fceaea;
+    color: #b42318;
+  }
+  
+  @media (max-width: 760px) {
+    .projectsTitleWrap h1 {
+      font-size: 28px;
+    }
+  
+    .projectCardName {
+      font-size: 18px;
+    }
+  
+    .statusInline {
+      grid-template-columns: 1fr;
+    }
+  
+    .paginationRow {
+      display: grid;
+      justify-content: stretch;
+    }
+  }
+  

@@ -1,336 +1,423 @@
-// import React, { useState } from "react";
-// import "./styles.css";
+import React, {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useApolloClient, useMutation, useQuery } from "@apollo/client/react";
+import { AuthScreen } from "./features/auth/AuthScreen";
+import { DashboardScreen } from "./features/dashboard/DashboardScreen";
+import type {
+  DashboardProjectPage,
+  ProjectFormInput,
+} from "./features/dashboard/types";
+import { authStorage, graphqlEndpoint } from "./graphql/apolloClient";
+import {
+  ArchiveProjectDocument,
+  CreateProjectDocument,
+  DeleteProjectDocument,
+  HealthDocument,
+  JoinProjectDocument,
+  LeaveProjectDocument,
+  ProjectSummariesDocument,
+  UpdateProjectDocument,
+  ViewerDocument,
+} from "./graphql/generated";
+import { useGoogleSignIn } from "./hooks/useGoogleSignIn";
+import { toFriendlyError } from "./lib/errors";
+import { useInstallPrompt } from "./pwa/useInstallPrompt";
 
-// // --- Types ---
-// export type Currency = "USD" | "TWD" | "JPY" | "EUR";
+const PAGE_SIZE = 6;
 
-// export interface Participant {
-//   id: string;
-//   name: string;
-// }
-
-// export interface Expense {
-//   id: string;
-//   payerId: string;
-//   amount: number;
-//   currency: Currency;
-//   description: string;
-// }
-
-// export interface Project {
-//   id: string;
-//   name: string;
-//   participants: Participant[];
-//   expenses: Expense[];
-//   targetCurrency: Currency;
-// }
-
-// // --- Constants ---
-// const CURRENCIES: Currency[] = ["USD", "TWD", "JPY", "EUR"];
-
-// // --- Mock Data (For UI visualization only) ---
-// const INITIAL_PROJECTS: Project[] = [
-//   {
-//     id: "p1",
-//     name: "Japan Trip (Mock)",
-//     participants: [
-//       { id: "u1", name: "Alice" },
-//       { id: "u2", name: "Bob" },
-//     ],
-//     expenses: [
-//       {
-//         id: "e1",
-//         payerId: "u1",
-//         amount: 1000,
-//         currency: "JPY",
-//         description: "Lunch",
-//       },
-//     ],
-//     targetCurrency: "TWD",
-//   },
-// ];
-
-// export default function App() {
-//   // TODO: Implement state management for projects
-//   const [projects] = useState<Project[]>(INITIAL_PROJECTS);
-//   const [activeProjectId, setActiveProjectId] = useState<string>("p1");
-//   const [isSettlementOpen, setIsSettlementOpen] = useState(false);
-
-//   // Helper to get active project
-//   const activeProject =
-//     projects.find((p) => p.id === activeProjectId) || projects[0];
-
-//   // --- Actions (To be implemented by candidate) ---
-
-//   const handleAddProject = () => {
-//     console.log("TODO: Add Project");
-//   };
-
-//   const handleAddParticipant = (name: string) => {
-//     console.log("TODO: Add Participant", name);
-//   };
-
-//   const handleRemoveParticipant = (id: string) => {
-//     console.log("TODO: Remove Participant", id);
-//   };
-
-//   const handleAddExpense = (expense: Omit<Expense, "id">) => {
-//     console.log("TODO: Add Expense", expense);
-//   };
-
-//   const handleCalculate = () => {
-//     console.log("TODO: Calculate Settlement");
-//     setIsSettlementOpen(true); // Just to show the modal UI
-//   };
-
-//   const handleTargetCurrencyChange = (currency: Currency) => {
-//     console.log("TODO: Update Target Currency", currency);
-//   };
-
-//   return (
-//     <div className="app-container">
-//       {/* Sidebar */}
-//       <div className="sidebar">
-//         <h2>Projects</h2>
-//         {projects.map((p) => (
-//           <div
-//             key={p.id}
-//             className={`project-item ${
-//               p.id === activeProjectId ? "active" : ""
-//             }`}
-//             onClick={() => setActiveProjectId(p.id)}
-//           >
-//             {p.name}
-//           </div>
-//         ))}
-//         <button className="add-project-btn" onClick={handleAddProject}>
-//           + New Project
-//         </button>
-//       </div>
-
-//       {/* Main Content */}
-//       <div className="main-content">
-//         <header className="header">
-//           <h1>{activeProject.name}</h1>
-//           <div>
-//             <label>Settlement Currency: </label>
-//             <select
-//               value={activeProject.targetCurrency}
-//               onChange={(e) =>
-//                 handleTargetCurrencyChange(e.target.value as Currency)
-//               }
-//             >
-//               {CURRENCIES.map((c) => (
-//                 <option key={c} value={c}>
-//                   {c}
-//                 </option>
-//               ))}
-//             </select>
-//           </div>
-//         </header>
-
-//         {/* 1. Participant Manager */}
-//         <div className="section">
-//           <h3>Participants</h3>
-//           <div className="form-row">
-//             <ParticipantInput onAdd={handleAddParticipant} />
-//           </div>
-//           <div className="tag-list">
-//             {activeProject.participants.map((p) => (
-//               <div key={p.id} className="tag">
-//                 {p.name}
-//                 <button onClick={() => handleRemoveParticipant(p.id)}>x</button>
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-
-//         {/* 2. Expense Input */}
-//         <div className="section">
-//           <h3>Add Expense</h3>
-//           <ExpenseForm
-//             participants={activeProject.participants}
-//             onAdd={handleAddExpense}
-//           />
-//         </div>
-
-//         {/* 3. Expense List */}
-//         <div className="section">
-//           <h3>Expenses List</h3>
-//           {activeProject.expenses.length === 0 ? (
-//             <p>No expenses yet.</p>
-//           ) : (
-//             activeProject.expenses.map((e) => {
-//               const payerName =
-//                 activeProject.participants.find((p) => p.id === e.payerId)
-//                   ?.name || "Unknown";
-//               return (
-//                 <div key={e.id} className="expense-item">
-//                   <span>
-//                     <strong>{payerName}</strong> paid{" "}
-//                     <strong>
-//                       {e.amount} {e.currency}
-//                     </strong>
-//                   </span>
-//                   <span>{e.description}</span>
-//                 </div>
-//               );
-//             })
-//           )}
-//         </div>
-
-//         {/* 4. Action */}
-//         <button
-//           style={{ width: "100%", padding: "15px" }}
-//           onClick={handleCalculate}
-//         >
-//           Calculate Settlement
-//         </button>
-
-//         {/* Settlement Modal (Static Dummy) */}
-//         {isSettlementOpen && (
-//           <div
-//             className="modal-overlay"
-//             onClick={() => setIsSettlementOpen(false)}
-//           >
-//             <div className="modal" onClick={(e) => e.stopPropagation()}>
-//               <h2>Settlement Plan</h2>
-//               <p>Target: {activeProject.targetCurrency}</p>
-//               <hr />
-//               <div
-//                 style={{ padding: "20px", textAlign: "center", color: "#666" }}
-//               >
-//                 [ TODO: Render Calculation Results Here ]
-//               </div>
-//               <button
-//                 style={{ marginTop: "20px", width: "100%" }}
-//                 onClick={() => setIsSettlementOpen(false)}
-//               >
-//                 Close
-//               </button>
-//             </div>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
-
-// // --- Sub-Components ---
-
-// function ParticipantInput({ onAdd }: { onAdd: (name: string) => void }) {
-//   const [name, setName] = useState("");
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     onAdd(name);
-//     setName("");
-//   };
-//   return (
-//     <form
-//       onSubmit={handleSubmit}
-//       style={{ display: "flex", gap: "10px", width: "100%" }}
-//     >
-//       <input
-//         placeholder="Name"
-//         value={name}
-//         onChange={(e) => setName(e.target.value)}
-//       />
-//       <button type="submit">Add</button>
-//     </form>
-//   );
-// }
-
-// function ExpenseForm({
-//   participants,
-//   onAdd,
-// }: {
-//   participants: Participant[];
-//   onAdd: (e: Omit<Expense, "id">) => void;
-// }) {
-//   // Keep local state for form inputs to be interactive
-//   const [payerId, setPayerId] = useState("");
-//   const [amount, setAmount] = useState("");
-//   const [currency, setCurrency] = useState<Currency>("TWD");
-//   const [description, setDescription] = useState("");
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     onAdd({
-//       payerId,
-//       amount: parseFloat(amount),
-//       currency,
-//       description,
-//     });
-//     // Optional: Reset form
-//     setAmount("");
-//     setDescription("");
-//   };
-
-//   return (
-//     <form onSubmit={handleSubmit}>
-//       <div className="form-row">
-//         <select
-//           value={payerId}
-//           onChange={(e) => setPayerId(e.target.value)}
-//           style={{ flex: 1 }}
-//         >
-//           <option value="">-- Who Paid? --</option>
-//           {participants.map((p) => (
-//             <option key={p.id} value={p.id}>
-//               {p.name}
-//             </option>
-//           ))}
-//         </select>
-//         <input
-//           type="number"
-//           placeholder="Amount"
-//           value={amount}
-//           onChange={(e) => setAmount(e.target.value)}
-//           style={{ width: "100px" }}
-//         />
-//         <select
-//           value={currency}
-//           onChange={(e) => setCurrency(e.target.value as Currency)}
-//         >
-//           {CURRENCIES.map((c) => (
-//             <option key={c} value={c}>
-//               {c}
-//             </option>
-//           ))}
-//         </select>
-//       </div>
-//       <div className="form-row">
-//         <input
-//           placeholder="Description"
-//           value={description}
-//           onChange={(e) => setDescription(e.target.value)}
-//           style={{ flex: 1 }}
-//         />
-//         <button type="submit">Add Expense</button>
-//       </div>
-//     </form>
-//   );
-// }
-import React, { useState } from "react";
+const EMPTY_PAGE: DashboardProjectPage = {
+  items: [],
+  page: 1,
+  pageSize: PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
 
 export default function App() {
-  const [result, setResult] = useState("not tested");
+  const apolloClient = useApolloClient();
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
-  const testApi = async () => {
+  const [health, setHealth] = useState("loading...");
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [authHint, setAuthHint] = useState(() =>
+    authStorage.hasAuthCredentials()
+  );
+  const [devUserIdInput, setDevUserIdInput] = useState(() =>
+    authStorage.getDevUserId()
+  );
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  const { canInstall, installed, promptInstall } = useInstallPrompt();
+  const showDevBypass = process.env.REACT_APP_ENABLE_DEV_BYPASS === "true";
+
+  const {
+    data: healthData,
+    error: healthError,
+    refetch: refetchHealth,
+  } = useQuery(HealthDocument, {
+    fetchPolicy: "network-only",
+  });
+
+  const {
+    data: viewerData,
+    loading: viewerLoading,
+    error: viewerError,
+    refetch: refetchViewer,
+  } = useQuery(ViewerDocument, {
+    skip: !authHint,
+    fetchPolicy: "network-only",
+    errorPolicy: "all",
+  });
+
+  const isAuthenticated = Boolean(viewerData?.viewer);
+  const projectQueryVars = useMemo(
+    () => ({
+      page,
+      pageSize: PAGE_SIZE,
+      search: search || null,
+    }),
+    [page, search]
+  );
+
+  const {
+    data: projectPageData,
+    loading: projectLoading,
+    error: projectError,
+    refetch: refetchProjectPage,
+  } = useQuery(ProjectSummariesDocument, {
+    skip: !isAuthenticated,
+    fetchPolicy: "network-only",
+    errorPolicy: "all",
+    variables: projectQueryVars,
+  });
+
+  const [createProject] = useMutation(CreateProjectDocument);
+  const [updateProject] = useMutation(UpdateProjectDocument);
+  const [joinProject] = useMutation(JoinProjectDocument);
+  const [archiveProject] = useMutation(ArchiveProjectDocument);
+  const [deleteProject] = useMutation(DeleteProjectDocument);
+  const [leaveProject] = useMutation(LeaveProjectDocument);
+
+  const onGoogleCredential = useCallback(
+    async (credential: string) => {
+      authStorage.setGoogleIdToken(credential);
+      authStorage.clearDevUserId();
+      setAuthHint(true);
+      setError(null);
+      await apolloClient.resetStore();
+    },
+    [apolloClient]
+  );
+
+  const { googleReady } = useGoogleSignIn({
+    clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+    targetRef: googleButtonRef,
+    enabled: !isAuthenticated,
+    onCredential: onGoogleCredential,
+  });
+
+  const projectPage: DashboardProjectPage = useMemo(() => {
+    const pageResult = projectPageData?.projectSummaries;
+    if (!pageResult) {
+      return {
+        ...EMPTY_PAGE,
+        page,
+      };
+    }
+    return {
+      items: pageResult.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        targetCurrency: item.targetCurrency,
+        agreedRateFirst: item.agreedRateFirst,
+        status: item.status,
+        inviteCode: item.inviteCode,
+        inviteLink: item.inviteLink,
+        memberCount: item.memberCount,
+        viewerRole: item.viewerRole,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+      page: pageResult.page,
+      pageSize: pageResult.pageSize,
+      total: pageResult.total,
+      totalPages: pageResult.totalPages,
+      hasNextPage: pageResult.hasNextPage,
+      hasPreviousPage: pageResult.hasPreviousPage,
+    };
+  }, [page, projectPageData]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setError(null);
+
     try {
-      const res = await fetch("/api/ping");
-      const text = await res.text();
-      setResult(text);
-    } catch (e) {
-      setResult(`failed: ${String(e)}`);
+      const healthResult = await refetchHealth();
+      setHealth(healthResult.data?.health ?? "ok");
+
+      if (!authStorage.hasAuthCredentials()) {
+        setInitializing(false);
+        return;
+      }
+
+      const viewerResult = await refetchViewer();
+      const authenticated = Boolean(viewerResult.data?.viewer);
+      if (!authenticated) {
+        setInitializing(false);
+        return;
+      }
+
+      await refetchProjectPage(projectQueryVars);
+      setLastSyncedAt(new Date().toISOString());
+    } catch (err) {
+      setError(toFriendlyError(err));
+    } finally {
+      setRefreshing(false);
+      setInitializing(false);
+    }
+  }, [projectQueryVars, refetchHealth, refetchProjectPage, refetchViewer]);
+
+  const runProjectMutation = useCallback(
+    async (executor: () => Promise<void>) => {
+      setActionBusy(true);
+      setError(null);
+      try {
+        await executor();
+        await refetchProjectPage(projectQueryVars);
+        setLastSyncedAt(new Date().toISOString());
+      } catch (err) {
+        setError(toFriendlyError(err));
+        throw err;
+      } finally {
+        setActionBusy(false);
+      }
+    },
+    [projectQueryVars, refetchProjectPage]
+  );
+
+  useEffect(() => {
+    if (!healthData?.health) {
+      return;
+    }
+    setHealth(healthData.health);
+  }, [healthData]);
+
+  useEffect(() => {
+    if (!healthError) {
+      return;
+    }
+    setHealth("error");
+    setError(toFriendlyError(healthError));
+  }, [healthError]);
+
+  useEffect(() => {
+    if (!projectPageData?.projectSummaries) {
+      return;
+    }
+    setLastSyncedAt(new Date().toISOString());
+  }, [projectPageData]);
+
+  useEffect(() => {
+    if (!projectError) {
+      return;
+    }
+    setError(toFriendlyError(projectError));
+  }, [projectError]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    void refresh();
+  }, [authHint, refresh]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthenticated = async () => {
+      authStorage.clearAll();
+      setAuthHint(false);
+      setLastSyncedAt(null);
+      await apolloClient.clearStore();
+    };
+
+    window.addEventListener("fairshare:unauthenticated", handleUnauthenticated);
+    return () => {
+      window.removeEventListener(
+        "fairshare:unauthenticated",
+        handleUnauthenticated
+      );
+    };
+  }, [apolloClient]);
+
+  const onUseDevUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = devUserIdInput.trim();
+    if (!value) {
+      return;
+    }
+
+    authStorage.setDevUserId(value);
+    authStorage.clearGoogleIdToken();
+    setAuthHint(true);
+    setError(null);
+    await apolloClient.resetStore();
+  };
+
+  const onLogout = async () => {
+    authStorage.clearAll();
+    setAuthHint(false);
+    setLastSyncedAt(null);
+    await apolloClient.clearStore();
+  };
+
+  const onCreateProject = async (input: ProjectFormInput) => {
+    if (!isOnline) {
+      setError("You are offline. Reconnect before creating a project.");
+      throw new Error("OFFLINE");
+    }
+
+    await runProjectMutation(async () => {
+      await createProject({
+        variables: {
+          name: input.name,
+          targetCurrency: input.targetCurrency,
+          agreedRateFirst: input.agreedRateFirst,
+        },
+      });
+    });
+  };
+
+  const onUpdateProject = async (
+    input: ProjectFormInput & { projectId: string }
+  ) => {
+    await runProjectMutation(async () => {
+      await updateProject({
+        variables: {
+          projectId: input.projectId,
+          name: input.name,
+          targetCurrency: input.targetCurrency,
+          agreedRateFirst: input.agreedRateFirst,
+        },
+      });
+    });
+  };
+
+  const onJoinProject = async (inviteCode: string) => {
+    await runProjectMutation(async () => {
+      await joinProject({
+        variables: { inviteCode },
+      });
+    });
+  };
+
+  const onArchiveProject = async (projectId: string) => {
+    await runProjectMutation(async () => {
+      await archiveProject({
+        variables: { projectId },
+      });
+    });
+  };
+
+  const onDeleteProject = async (projectId: string) => {
+    await runProjectMutation(async () => {
+      await deleteProject({
+        variables: { projectId },
+      });
+    });
+  };
+
+  const onLeaveProject = async (projectId: string) => {
+    await runProjectMutation(async () => {
+      await leaveProject({
+        variables: { projectId },
+      });
+    });
+  };
+
+  const onInstall = async () => {
+    const accepted = await promptInstall();
+    if (accepted) {
+      setError(null);
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        googleClientConfigured={Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID)}
+        googleReady={googleReady}
+        googleButtonRef={googleButtonRef}
+        canInstall={canInstall}
+        onInstall={onInstall}
+        showDevBypass={showDevBypass}
+        devUserIdInput={devUserIdInput}
+        onDevUserIdInputChange={setDevUserIdInput}
+        onUseDevUser={onUseDevUser}
+        viewerLoading={viewerLoading || initializing}
+        viewerError={viewerError ? toFriendlyError(viewerError) : undefined}
+        error={error ?? undefined}
+      />
+    );
+  }
+
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Client ↔ API Test</h1>
-      <button onClick={testApi}>Test API</button>
-      <pre>{result}</pre>
-    </div>
+    <DashboardScreen
+      viewerName={viewerData?.viewer.displayName ?? ""}
+      viewerRole={viewerData?.viewer.accountRole ?? "VIEWER"}
+      refreshing={refreshing}
+      actionBusy={actionBusy}
+      onRefresh={refresh}
+      onLogout={onLogout}
+      canInstall={canInstall}
+      installed={installed}
+      onInstall={onInstall}
+      isOnline={isOnline}
+      health={health}
+      lastSyncedAt={lastSyncedAt}
+      endpoint={graphqlEndpoint}
+      projectPage={projectPage}
+      projectLoading={projectLoading}
+      search={searchInput}
+      onSearchChange={setSearchInput}
+      onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+      onCreateProject={onCreateProject}
+      onUpdateProject={onUpdateProject}
+      onJoinProject={onJoinProject}
+      onArchiveProject={onArchiveProject}
+      onDeleteProject={onDeleteProject}
+      onLeaveProject={onLeaveProject}
+      error={error ?? undefined}
+    />
   );
 }

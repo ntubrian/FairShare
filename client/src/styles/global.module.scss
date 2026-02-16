@@ -1,0 +1,82 @@
+:global(:root) {
+    --brand-primary: #2e7d6b;
+    --brand-primary-strong: #276a5a;
+    --surface-base: #fffdf8;
+    --surface-card: #ffffff;
+    --surface-card-alt: #f8f5ec;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --border-soft: #ece7da;
+    --border-default: #e5e7eb;
+    --status-online-bg: #e8f7ee;
+    --status-online-fg: #1e7a46;
+    --status-offline-bg: #fdecec;
+    --status-offline-fg: #b42318;
+    --error-bg: #fdecec;
+    --error-fg: #b42318;
+    --radius-lg: 18px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --shadow-card: 0 4px 10px rgba(16, 24, 40, 0.08);
+  }
+  
+  :global(*),
+  :global(*::before),
+  :global(*::after) {
+    box-sizing: border-box;
+  }
+  
+  :global(body) {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Inter", "Noto Sans TC", system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+    background:
+      radial-gradient(circle at top left, #f3f7e8 0%, transparent 45%),
+      radial-gradient(circle at top right, #f9eee1 0%, transparent 40%),
+      var(--surface-base);
+  }
+  
+  :global(h1),
+  :global(h2),
+  :global(h3),
+  :global(p) {
+    margin: 0;
+  }
+  
+  :global(button),
+  :global(input),
+  :global(select) {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-default);
+    font-size: 14px;
+  }
+  
+  :global(button) {
+    padding: 10px 14px;
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 140ms ease;
+  }
+  
+  :global(button:hover:not(:disabled)) {
+    background: var(--brand-primary-strong);
+  }
+  
+  :global(button:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  :global(input),
+  :global(select) {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    color: var(--text-primary);
+    background: var(--surface-card);
+  }
+  
