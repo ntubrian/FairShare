@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { JoinProjectModal } from "./components/JoinProjectModal";
 import { ProjectActionSheet } from "./components/ProjectActionSheet";
@@ -39,6 +39,14 @@ type DashboardScreenProps = {
   onArchiveProject: (projectId: string) => Promise<void>;
   onDeleteProject: (projectId: string) => Promise<void>;
   onLeaveProject: (projectId: string) => Promise<void>;
+  joinFeedback?: {
+    tone: "success" | "info" | "error";
+    message: string;
+    actionLabel?: string;
+  } | null;
+  onJoinFeedbackAction?: () => void;
+  onDismissJoinFeedback?: () => void;
+  openJoinSignal?: number;
   error?: string;
 };
 
@@ -85,6 +93,10 @@ export const DashboardScreen = ({
   onArchiveProject,
   onDeleteProject,
   onLeaveProject,
+  joinFeedback,
+  onJoinFeedbackAction,
+  onDismissJoinFeedback,
+  openJoinSignal = 0,
   error,
 }: DashboardScreenProps) => {
   const [createOpen, setCreateOpen] = useState(false);
@@ -96,6 +108,13 @@ export const DashboardScreen = ({
   const [confirmState, setConfirmState] = useState<ConfirmState>(
     DEFAULT_CONFIRM_STATE
   );
+
+  useEffect(() => {
+    if (openJoinSignal <= 0) {
+      return;
+    }
+    setJoinOpen(true);
+  }, [openJoinSignal]);
 
   const pageCaption = useMemo(() => {
     if (projectPage.total === 0) {
@@ -219,6 +238,40 @@ export const DashboardScreen = ({
           </button>
         </div>
       </header>
+
+      {joinFeedback ? (
+        <section
+          className={`${styles.joinFeedbackCard} ${
+            joinFeedback.tone === "success"
+              ? styles.joinFeedbackSuccess
+              : joinFeedback.tone === "info"
+              ? styles.joinFeedbackInfo
+              : styles.joinFeedbackError
+          }`}
+          role={joinFeedback.tone === "error" ? "alert" : "status"}
+          aria-live={joinFeedback.tone === "error" ? "assertive" : "polite"}
+        >
+          <p className={styles.joinFeedbackMessage}>{joinFeedback.message}</p>
+          <div className={styles.joinFeedbackActions}>
+            {joinFeedback.actionLabel ? (
+              <button
+                type="button"
+                className={styles.joinFeedbackActionButton}
+                onClick={() => onJoinFeedbackAction?.()}
+              >
+                {joinFeedback.actionLabel}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={styles.joinFeedbackDismissButton}
+              onClick={() => onDismissJoinFeedback?.()}
+            >
+              Dismiss
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className={`${styles.card} ${styles.projectsToolbar}`}>
         <input

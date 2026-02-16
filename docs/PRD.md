@@ -2,27 +2,27 @@
 
 ## 1. Document Purpose
 
-- This document defines the FairShare product specification, using `README.md` as the baseline.
-- This document also integrates the currently confirmed product-oriented directions (Google Auth, Pusher, PDF export, and bilingual support).
+- This document defines FairShare product specifications, **with `README.md` as the baseline**.
+- This document also consolidates the currently confirmed productization directions (Google Auth, Pusher, PDF export, bilingual support).
 
-## 2. Project Context and Goals
+## 2. Project Background and Goals
 
-- Target use case: company team lunch cost splitting.
-- Core value: enable teams to quickly record expenses across multiple currencies and get an actionable settlement plan (who should pay whom).
+- Target use case: expense splitting for company team lunches.
+- Core value: enable teams to quickly record expenses in multi-currency scenarios and generate an actionable settlement plan (who pays whom).
 
 ## 3. Scope Definition
 
 ### 3.1 In Scope (v1)
 
-- Create and switch projects (multi-project isolation).
-- Join projects via share link or invite code.
+- Project creation and switching (multi-project isolation).
+- Join project via share link or invite code.
 - Google sign-in.
-- Add/remove participants (including removal validation).
-- Add, list, edit, soft delete, and restore expenses.
-- Support four currencies: `USD / TWD / JPY / EUR`.
-- Project settlement currency setting (Target Currency).
-- Exchange-rate conversion (agreed rates first, otherwise real-time rates).
-- Display settlement results in a modal.
+- Participant add/remove (including removal validation constraints).
+- Expense create, list, edit, soft delete, restore.
+- Four supported currencies: `USD / TWD / JPY / EUR`.
+- Project target settlement currency setting (Target Currency).
+- Exchange conversion (agreed rate first; otherwise live rate).
+- Settlement result shown in Modal.
 - PDF export.
 - Real-time sync (Pusher).
 - Permission model (Owner / Editor / Viewer; implemented with CASL).
@@ -31,75 +31,75 @@
 ### 3.2 Out of Scope (Future)
 
 - Notification system (in-app or push).
-- Uneven split logic (ratio, percentage, fixed amount).
-- Unauthenticated participants in splitting.
+- Unequal split methods (ratio, percentage, custom amount).
+- Expense splitting for unauthenticated users.
 
 ## 4. README Baseline Alignment Checklist
 
-| README Requirement                              | Spec Status                                                   |
-| ----------------------------------------------- | ------------------------------------------------------------- |
-| Create Project / Switch Context / Isolation     | Aligned, data isolated by `project_id`                        |
-| Manage People + remove validation               | Aligned, participant with recorded expenses cannot be removed |
-| Add Expense (payer/amount/currency/description) | Aligned                                                       |
-| Supported Currencies: USD, TWD, JPY, EUR        | Aligned (fixed four-currency support)                         |
-| Expense List + correction flow                  | Aligned (edit/soft delete/restore)                            |
-| Target Currency + Calculate + who owes whom     | Aligned                                                       |
-| Result Display in Dialog/Modal                  | Aligned                                                       |
-| Exchange Rate API                               | Aligned (`https://open.er-api.com/v6/latest/TWD`)             |
+| README Core Requirement                           | Spec Status                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| Create Project / Switch Context / Isolation       | Aligned, data isolated by `project_id`                         |
+| Manage People + remove validation                 | Aligned, participants with existing expenses cannot be removed |
+| Add Expense (`payer/amount/currency/description`) | Aligned                                                        |
+| Supported Currencies: USD, TWD, JPY, EUR          | Aligned (fixed four currencies)                                |
+| Expense List + correction flow                    | Aligned (edit/soft delete/restore)                             |
+| Target Currency + Calculate + who owes whom       | Aligned                                                        |
+| Result Display in Dialog/Modal                    | Aligned                                                        |
+| Exchange Rate API                                 | Aligned (`https://open.er-api.com/v6/latest/TWD`)              |
 
 ## 5. Roles and Permissions
 
-| Action                                                             | Owner | Editor | Viewer |
-| ------------------------------------------------------------------ | ----- | ------ | ------ |
-| View project/expenses/settlement                                   | Yes   | Yes    | Yes    |
-| Create project                                                     | Yes   | Yes    | No     |
-| Manage project settings (name, settlement currency, rate strategy) | Yes   | Yes    | No     |
-| Manage participants                                                | Yes   | Yes    | No     |
-| Add/edit expenses                                                  | Yes   | Yes    | No     |
-| Soft delete/restore expenses                                       | Yes   | Yes    | No     |
-| Trigger settlement                                                 | Yes   | Yes    | Yes    |
-| Export PDF                                                         | Yes   | Yes    | Yes    |
-| Manage role permissions                                            | Yes   | No     | No     |
+| Action                                                         | Owner | Editor | Viewer |
+| -------------------------------------------------------------- | ----- | ------ | ------ |
+| View project/expenses/settlement                               | Yes   | Yes    | Yes    |
+| Create project                                                 | Yes   | Yes    | No     |
+| Manage project settings (name, target currency, rate strategy) | Yes   | Yes    | No     |
+| Manage participants                                            | Yes   | Yes    | No     |
+| Create/edit expenses                                           | Yes   | Yes    | No     |
+| Soft delete/restore expenses                                   | Yes   | Yes    | No     |
+| Trigger settlement                                             | Yes   | Yes    | Yes    |
+| Export PDF                                                     | Yes   | Yes    | Yes    |
+| Manage role permissions                                        | Yes   | No     | No     |
 
-## 6. User Flow (User Story Flow)
+## 6. User Story Flow
 
 ```mermaid
 flowchart TD
 A[Enter App] --> B{Already signed in with Google?}
-B -- No --> C[Google OAuth Sign-in]
-B -- Yes --> D[Project List]
+B -- No --> C[Google OAuth sign-in]
+B -- Yes --> D[Project list]
 C --> D
-D --> E{Create / Join / Open Existing}
-E --> E1[Create Project]
-E --> E2[Join Project]
-E --> E3[Open Existing Project]
-E1 --> E1a[Project Form: name + target currency + rate strategy]
-E1a --> E1b[Save Project and assign current user as Owner]
+D --> E{Create / Join / Open existing project}
+E --> E1[Create project]
+E --> E2[Join project]
+E --> E3[Open existing project]
+E1 --> E1a[Fill project form: name + target currency + rate strategy]
+E1a --> E1b[Project created and current user set as Owner]
 E1b --> E1c[Optional invite step: share link or invite code]
 E2 --> E2a[Paste share link or enter invite code]
-E2a --> E2b{Invite valid?}
+E2a --> E2b{Invite info valid?}
 E2b -- No --> E2c[Show validation error and retry]
 E2c --> E2a
 E2b -- Yes --> E3
 E1c --> E3
-E3 --> F[Manage Participants]
-F --> G[Add Expense]
+E3 --> F[Manage participants]
+F --> G[Add expense]
 G --> H{Input validation passed?}
-H -- No --> I[Show inline validation errors]
+H -- No --> I[Real-time validation error message]
 I --> G
 H -- Yes --> J[Write to Neon DB]
 J --> K[Pusher real-time sync]
-K --> L{Need to correct an expense?}
-L -- Yes --> M[Edit or Soft Delete]
-M --> N[Restore anytime]
+K --> L{Need to correct expense?}
+L -- Yes --> M[Edit or soft delete]
+M --> N[Can restore anytime]
 N --> J
-L -- No --> O[Run Settlement]
-O --> P{Agreed exchange rates set?}
-P -- No --> Q[Use real-time exchange rate API]
-P -- Yes --> R[Use agreed exchange rates]
+L -- No --> O[Run settlement]
+O --> P{Agreed rate available?}
+P -- No --> Q[Live exchange rate API]
+P -- Yes --> R[Use agreed rate]
 Q --> S[Calculate who owes whom]
 R --> S
-S --> T[Show result in Modal]
+S --> T[Show results in Modal]
 T --> U[Export PDF]
 ```
 
@@ -107,128 +107,154 @@ T --> U[Export PDF]
 
 ### FR-1 Authentication and Sign-in
 
-- Sign in with Google OAuth.
+- Use Google OAuth sign-in.
 - No company-domain restriction.
 - Unauthenticated users cannot access project data pages.
 
 ### FR-2 Project Management
 
 - Users can create multiple projects.
-- Users can join projects via share link or invite code.
+- Users can join via share link or invite code.
 - Users can switch between projects.
-- Project data must be fully isolated with no cross-project pollution.
+- Each project's data must be isolated without cross-project contamination.
+- After successful join via share link or invite code, show a success message (including project name), and the project must immediately appear in the list.
+- If join fails (invalid/expired/unauthorized), show a clear, understandable error with retry capability. The UI must not remain in a no-feedback state.
+
+### FR-2b Join Feedback
+
+- Success state:
+  - Show success toast/banner: `Joined project: {projectName}` (zh-TW: `已加入專案：{projectName}`).
+  - Recommended duration: 2-3 seconds, and dismissible.
+  - After success, route back to project list and make the newly joined project visible in the first viewport (can be achieved by sorting by updated time).
+- Already-member state:
+  - Show info toast/banner: `You are already in this project.` (zh-TW: `你已在此專案中。`).
+  - This is not an error and must not block subsequent operations.
+- Failure state:
+  - Show error toast/banner: `Invalid or expired invite code.` (zh-TW: `邀請碼無效或已過期。`).
+  - Keep input value and provide `Retry` or re-entry path.
 
 ### FR-3 Participant Management
 
-- Users can add participants to the current project.
-- When attempting to remove a participant, if that participant appears in any non-deleted expense, removal must be blocked with a friendly message.
+- Participants can be added to the current project.
+- When removing a participant, if the participant appears in any non-deleted expense, removal must be blocked with a friendly message.
 
 ### FR-4 Expense Management
 
 - Fields: `payerId`, `amount`, `currency`, `description?`.
-- `payerId` must exist in the current project's participant list.
+- `payerId` must exist in the current project participant list.
 - `amount` must be a positive number.
 - `currency` must be one of `USD/TWD/JPY/EUR`.
-- Expenses must be displayed in the current project's expense list.
+- Expenses must be displayed in the current project's list.
 
-### FR-5 Correction Flow (Mistake Handling)
+### FR-5 Mistake Handling
 
-- Support editing expenses.
-- Support soft delete (retain data; no hard delete).
+- Support expense editing.
+- Support soft delete (retain data, no hard delete).
 - Support restoring soft-deleted expenses (no time limit).
 
 ### FR-6 Exchange Rates and Settlement
 
-- Each project can set a `targetCurrency`.
-- Rate Strategy Rule 1: if agreed rates exist, they take priority.
-- Rate Strategy Rule 2: if no agreed rates exist, call the real-time rate API: `https://open.er-api.com/v6/latest/TWD`.
-- The settlement result must generate readability-first payment instructions (A pays B X currency).
+- Each project can set `targetCurrency`.
+- Rate strategy rule 1: if agreed rates exist, use agreed rates first.
+- Rate strategy rule 2: if no agreed rates exist, call live rate API: `https://open.er-api.com/v6/latest/TWD`.
+- Calculation output must provide readability-first payment instructions (A pays B X currency).
 
-### FR-7 Result Display
+### FR-7 Result Presentation
 
-- Show settlement results in a Dialog/Modal.
-- Display target currency, transaction instructions, and calculation timestamp.
+- Use Dialog/Modal to display settlement results.
+- Show target currency, instruction list, and calculation timestamp.
 
 ### FR-8 Real-time Sync
 
-- All expense changes, restorations, and project setting updates must be broadcast through Pusher.
-- Other online members should see updates within reasonable latency (target < 2 seconds).
+- All expense changes, restores, and project setting updates must be broadcast via Pusher.
+- Other online members should see updates within reasonable delay (target < 2 seconds).
 
 ### FR-9 PDF Export
 
 - Settlement results can be exported as PDF.
-- PDF Field 1: project name.
-- PDF Field 2: export timestamp.
-- PDF Field 3: target currency.
-- PDF Field 4: exchange-rate snapshot (source and values).
-- PDF Field 5: settlement transaction list.
-- PDF Field 6: expense details (with optional soft-delete markers).
+- PDF field 1: project name.
+- PDF field 2: export timestamp.
+- PDF field 3: target currency.
+- PDF field 4: rate snapshot used (source and value).
+- PDF field 5: settlement instruction list.
+- PDF field 6: expense details (optional soft-delete indicator).
 
 ### FR-10 Localization
 
-- Default locale should auto-switch to `zh-TW` or `en` based on browser language.
-- If the locale is unsupported, fallback to `en`.
+- Default locale auto-detects browser language: `zh-TW` or `en`.
+- If locale is not in supported list, fallback to `en`.
 
 ## 8. Acceptance Criteria
 
 ### AC-1 README Baseline
 
-- Four currencies (USD/TWD/JPY/EUR) are selectable.
-- Users can create multiple projects and data remains correctly isolated when switching.
-- Users can trigger settlement in UI and see results in a Modal.
+- Four currencies are selectable (USD/TWD/JPY/EUR).
+- Multiple projects can be created, and data remains correctly isolated when switching.
+- Settlement can be triggered in UI and displayed in Modal.
 
-### AC-1b Join Project Entry
+### AC-1b Join Entry
 
-- Users can join a project via share link or invite code.
-- Invalid link/code must show a clear error and allow retry.
+- Users can join projects via share link or invite code.
+- Invalid link/code must show clear errors and allow retry.
+- On successful join, success message must be shown and project list must immediately reflect the newly joined project.
+- If user is already a member, show an info message instead of a generic error.
 
 ### AC-2 Participant Removal Validation
 
-- If a participant already has recorded expenses, removal must fail with an explanatory message.
-- If a participant has no expenses, removal succeeds.
+- If participant already has expenses, remove action must fail with reason.
+- If participant has no expenses, removal succeeds.
 
-### AC-3 Expense Corrections
+### AC-3 Expense Correction
 
-- Expenses can be edited and changes are reflected in the list immediately.
-- Expenses can be soft deleted without data integrity issues.
-- Soft-deleted expenses can be restored at any time.
+- Expense can be edited and updates must immediately appear in the list.
+- Expense can be soft deleted without compromising data integrity.
+- Soft-deleted expense can be restored at any time.
 
-### AC-4 Exchange-rate Strategy
+### AC-4 Rate Strategy
 
-- Without agreed rates, the system can fetch real-time rates and complete settlement.
-- With agreed rates configured, settlement must not be overwritten by real-time rates.
+- Without agreed rates, system can fetch live rates and complete settlement.
+- With agreed rates configured, settlement must not be overridden by live rates.
 
-### AC-5 Access Control
+### AC-5 Permission Control
 
-- Viewer cannot add, edit, or delete expenses.
-- Editor can manage participants and expenses but cannot manage roles.
+- Viewer cannot create, edit, or delete expenses.
+- Editor can manage participants and expenses, but cannot manage roles.
 - Owner can manage roles and all resources.
 
 ### AC-6 Real-time Sync
 
-- When User A adds or edits an expense, User B's view updates automatically.
+- After user A creates/edits expenses, user B's screen auto-updates.
 
 ### AC-7 PDF Export
 
-- PDF can be downloaded, includes required fields, and values match UI data.
+- PDF can be downloaded, includes required fields, and values match UI.
 
 ### AC-8 Localization
 
-- When browser locale is `zh-TW`, the interface defaults to Chinese.
-- When browser locale is `en-*`, the interface defaults to English.
+- When browser locale is `zh-TW`, UI defaults to Chinese.
+- When browser locale is `en-*`, UI defaults to English.
 
-## 9. Implementation Suggestions (Non-mandatory)
+## 9. Technical Recommendations (Non-mandatory)
 
 - Frontend: React + TypeScript.
-- Validation: Zod or an equivalent schema validation tool.
-- Authentication: Google OAuth (Auth.js/NextAuth or Firebase Auth at implementation layer).
-- Real-time: Pusher Channels.
+- Validation: Zod or equivalent schema validation tooling.
+- Authentication: Google OAuth (implementation options include Auth.js/NextAuth or Firebase Auth).
+- Realtime: Pusher Channels.
 - DB: Neon PostgreSQL.
-- Permissions: CASL.
+- Authorization: CASL.
 - PDF: react-pdf or jsPDF.
 
 ## 10. Risks and Notes
 
-- Exchange-rate API is a third-party service; fallback handling is required (retry/error messaging).
-- Settlement outputs should preserve the exchange-rate snapshot used at calculation time to prevent later disputes.
-- Soft-deleted data should be clearly marked in UI to avoid user confusion about data loss.
+- Exchange rate API is a third-party dependency; must provide failure fallback (retry/error hint).
+- Settlement should persist rate snapshot at calculation time to avoid disputes caused by later rate changes.
+- Soft-deleted data must be clearly marked in UI to avoid user misunderstanding as "data loss."
+
+## 11. Design Spec Supplement (PWA + Bento Grid)
+
+- Added design token and precise Figma frame description doc: `docs/DESIGN_TOKENS_PWA_BENTO_GRID.md`.
+- This doc includes:
+  - PWA-oriented design principles (mobile-first, install prompt, sync status).
+  - Bento Grid style design tokens (color, typography, spacing, radius, shadow, motion).
+  - Frame-by-frame specs aligned with this PRD functional scope (Auth, Project, Participants, Expenses, Settlement, Realtime, PDF, i18n, Desktop).
+  - Image-generation prompts for rapid visual validation.

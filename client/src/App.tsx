@@ -1,4 +1,4 @@
-import React, {
+import {
   FormEvent,
   useCallback,
   useEffect,
@@ -7,12 +7,14 @@ import React, {
   useState,
 } from "react";
 import { useApolloClient, useMutation, useQuery } from "@apollo/client/react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AuthScreen } from "./features/auth/AuthScreen";
 import { DashboardScreen } from "./features/dashboard/DashboardScreen";
 import type {
   DashboardProjectPage,
   ProjectFormInput,
 } from "./features/dashboard/types";
+import { resolveInviteCode } from "./features/dashboard/utils";
 import { authStorage, graphqlEndpoint } from "./graphql/apolloClient";
 import {
   ArchiveProjectDocument,
@@ -41,8 +43,42 @@ const EMPTY_PAGE: DashboardProjectPage = {
   hasPreviousPage: false,
 };
 
+type JoinFeedbackTone = "success" | "info" | "error";
+
+type JoinFeedback = {
+  tone: JoinFeedbackTone;
+  message: string;
+  actionLabel?: string;
+  actionType?: "RETRY_LINK" | "OPEN_JOIN";
+  inviteCode?: string;
+};
+
+type JoinOutcome = {
+  status: "joined" | "already_member";
+  projectName: string;
+};
+
+const getInviteCodeFromPath = (pathname: string, search: string) => {
+  const segments = pathname.split("/").filter(Boolean);
+  const root = segments[0] ?? "";
+  const isJoinPath = root === "join" || root === "invite";
+  if (!isJoinPath) {
+    return "";
+  }
+
+  const fromPath = segments[1] ?? "";
+  if (fromPath) {
+    return resolveInviteCode(fromPath);
+  }
+
+  const params = new URLSearchParams(search);
+  return resolveInviteCode(params.get("code") ?? "");
+};
+
 export default function App() {
   const apolloClient = useApolloClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   const [health, setHealth] = useState("loading...");
@@ -61,6 +97,9 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [consumedInviteCode, setConsumedInviteCode] = useState("");
+  const [joinFeedback, setJoinFeedback] = useState<JoinFeedback | null>(null);
+  const [openJoinSignal, setOpenJoinSignal] = useState(0);
 
   const { canInstall, installed, promptInstall } = useInstallPrompt();
   const showDevBypass = process.env.REACT_APP_ENABLE_DEV_BYPASS === "true";
@@ -84,7 +123,28 @@ export default function App() {
     errorPolicy: "all",
   });
 
-  const isAuthenticated = Boolean(viewerData?.viewer);
+  const isAuthenticated = authHint && Boolean(viewerData?.viewer);
+  const isAuthRoute = location.pathname === "/auth";
+  const inviteCodeFromLink = useMemo(
+    () => getInviteCodeFromPath(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+  const isAuthChecking = authHint && (viewerLoading || initializing);
+  const inviteBaseUrl = useMemo(() => {
+    const configured = process.env.REACT_APP_INVITE_BASE_URL?.trim();
+    if (configured) {
+      return configured.replace(/\/+$/, "");
+    }
+    if (typeof window !== "undefined") {
+      return window.location.origin;
+    }
+    return "http://localhost:3000";
+  }, []);
+  const toInviteLink = useCallback(
+    (inviteCode: string) =>
+      `${inviteBaseUrl}/join?code=${encodeURIComponent(inviteCode)}`,
+    [inviteBaseUrl]
+  );
   const projectQueryVars = useMemo(
     () => ({
       page,
@@ -147,7 +207,7 @@ export default function App() {
         agreedRateFirst: item.agreedRateFirst,
         status: item.status,
         inviteCode: item.inviteCode,
-        inviteLink: item.inviteLink,
+        inviteLink: toInviteLink(item.inviteCode),
         memberCount: item.memberCount,
         viewerRole: item.viewerRole,
         createdAt: item.createdAt,
@@ -160,7 +220,7 @@ export default function App() {
       hasNextPage: pageResult.hasNextPage,
       hasPreviousPage: pageResult.hasPreviousPage,
     };
-  }, [page, projectPageData]);
+  }, [page, projectPageData, toInviteLink]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -193,7 +253,10 @@ export default function App() {
   }, [projectQueryVars, refetchHealth, refetchProjectPage, refetchViewer]);
 
   const runProjectMutation = useCallback(
-    async (executor: () => Promise<void>) => {
+    async (
+      executor: () => Promise<void>,
+      options?: { suppressError?: boolean }
+    ) => {
       setActionBusy(true);
       setError(null);
       try {
@@ -201,7 +264,9 @@ export default function App() {
         await refetchProjectPage(projectQueryVars);
         setLastSyncedAt(new Date().toISOString());
       } catch (err) {
-        setError(toFriendlyError(err));
+        if (!options?.suppressError) {
+          setError(toFriendlyError(err));
+        }
         throw err;
       } finally {
         setActionBusy(false);
@@ -209,6 +274,111 @@ export default function App() {
     },
     [projectQueryVars, refetchProjectPage]
   );
+
+  const joinProjectByCode = useCallback(
+    async (inviteCode: string): Promise<JoinOutcome> => {
+      const normalizedInviteCode = inviteCode.trim().toUpperCase();
+      let joinedProjectId = "";
+
+      const baselineItems = projectPageData?.projectSummaries?.items ?? [];
+      let beforeProjectIds = new Set(
+        baselineItems.map((project) => project.id)
+      );
+
+      if (beforeProjectIds.size === 0 && isAuthenticated) {
+        try {
+          const beforeResult = await refetchProjectPage(projectQueryVars);
+          const beforeItems = beforeResult.data?.projectSummaries?.items ?? [];
+          beforeProjectIds = new Set(beforeItems.map((project) => project.id));
+        } catch {
+          // keep current snapshot when baseline fetch fails
+        }
+      }
+
+      await runProjectMutation(
+        async () => {
+          const joinResult = await joinProject({
+            variables: { inviteCode: normalizedInviteCode },
+          });
+          joinedProjectId = joinResult.data?.joinProject.id ?? "";
+          if (!joinedProjectId) {
+            throw new Error("Join project response missing project id.");
+          }
+        },
+        { suppressError: true }
+      );
+
+      const refreshed = await refetchProjectPage(projectQueryVars);
+      const refreshedItems = refreshed.data?.projectSummaries?.items ?? [];
+      const joinedProject = refreshedItems.find(
+        (project) => project.id === joinedProjectId
+      );
+
+      return {
+        status: beforeProjectIds.has(joinedProjectId)
+          ? "already_member"
+          : "joined",
+        projectName: joinedProject?.name ?? "Project",
+      };
+    },
+    [
+      isAuthenticated,
+      joinProject,
+      projectPageData,
+      projectQueryVars,
+      refetchProjectPage,
+      runProjectMutation,
+    ]
+  );
+
+  const joinViaInviteLink = useCallback(
+    async (inviteCode: string) => {
+      setError(null);
+      const outcome = await joinProjectByCode(inviteCode);
+      if (outcome.status === "already_member") {
+        setJoinFeedback({
+          tone: "info",
+          message: "You are already in this project.",
+        });
+      } else {
+        setJoinFeedback({
+          tone: "success",
+          message: `Joined project: ${outcome.projectName}`,
+        });
+      }
+      navigate("/projects", { replace: true });
+    },
+    [joinProjectByCode, navigate]
+  );
+
+  const onJoinFeedbackAction = useCallback(() => {
+    if (!joinFeedback) {
+      return;
+    }
+    if (joinFeedback.actionType === "OPEN_JOIN") {
+      setJoinFeedback(null);
+      setPage(1);
+      navigate("/projects", { replace: true });
+      setOpenJoinSignal((current) => current + 1);
+      return;
+    }
+    if (joinFeedback.actionType === "RETRY_LINK" && joinFeedback.inviteCode) {
+      setError(null);
+      void joinViaInviteLink(joinFeedback.inviteCode).catch((err) => {
+        setJoinFeedback({
+          tone: "error",
+          message: toFriendlyError(err) || "Invalid or expired invite code.",
+          actionLabel: "Retry",
+          actionType: "RETRY_LINK",
+          inviteCode: joinFeedback.inviteCode,
+        });
+      });
+    }
+  }, [joinFeedback, joinViaInviteLink, navigate]);
+
+  const onDismissJoinFeedback = useCallback(() => {
+    setJoinFeedback(null);
+  }, []);
 
   useEffect(() => {
     if (!healthData?.health) {
@@ -264,10 +434,91 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!joinFeedback) {
+      return;
+    }
+    if (joinFeedback.tone === "error") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setJoinFeedback((current) => {
+        if (!current || current.tone === "error") {
+          return current;
+        }
+        return null;
+      });
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [joinFeedback]);
+
+  useEffect(() => {
+    if (isAuthChecking) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      if (isAuthRoute) {
+        const next = new URLSearchParams(location.search).get("next");
+        if (next && next.startsWith("/")) {
+          navigate(next, { replace: true });
+        } else {
+          navigate("/projects", { replace: true });
+        }
+      }
+      return;
+    }
+
+    if (!isAuthRoute) {
+      const next = `${location.pathname}${location.search}`;
+      navigate(`/auth?next=${encodeURIComponent(next)}`, { replace: true });
+    }
+  }, [
+    isAuthChecking,
+    isAuthenticated,
+    isAuthRoute,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+    if (!inviteCodeFromLink) {
+      return;
+    }
+    if (inviteCodeFromLink === consumedInviteCode) {
+      return;
+    }
+
+    setConsumedInviteCode(inviteCodeFromLink);
+    void joinViaInviteLink(inviteCodeFromLink).catch((err) => {
+      setJoinFeedback({
+        tone: "error",
+        message: toFriendlyError(err) || "Invalid or expired invite code.",
+        actionLabel: "Retry",
+        actionType: "RETRY_LINK",
+        inviteCode: inviteCodeFromLink,
+      });
+      navigate("/projects", { replace: true });
+    });
+  }, [
+    consumedInviteCode,
+    inviteCodeFromLink,
+    isAuthenticated,
+    joinViaInviteLink,
+    navigate,
+  ]);
+
+  useEffect(() => {
     const handleUnauthenticated = async () => {
       authStorage.clearAll();
       setAuthHint(false);
       setLastSyncedAt(null);
+      setConsumedInviteCode("");
+      setJoinFeedback(null);
+      navigate("/auth", { replace: true });
       await apolloClient.clearStore();
     };
 
@@ -278,7 +529,7 @@ export default function App() {
         handleUnauthenticated
       );
     };
-  }, [apolloClient]);
+  }, [apolloClient, navigate]);
 
   const onUseDevUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -298,6 +549,9 @@ export default function App() {
     authStorage.clearAll();
     setAuthHint(false);
     setLastSyncedAt(null);
+    setConsumedInviteCode("");
+    setJoinFeedback(null);
+    navigate("/auth", { replace: true });
     await apolloClient.clearStore();
   };
 
@@ -334,11 +588,29 @@ export default function App() {
   };
 
   const onJoinProject = async (inviteCode: string) => {
-    await runProjectMutation(async () => {
-      await joinProject({
-        variables: { inviteCode },
+    setError(null);
+    try {
+      const outcome = await joinProjectByCode(inviteCode);
+      if (outcome.status === "already_member") {
+        setJoinFeedback({
+          tone: "info",
+          message: "You are already in this project.",
+        });
+      } else {
+        setJoinFeedback({
+          tone: "success",
+          message: `Joined project: ${outcome.projectName}`,
+        });
+      }
+    } catch (err) {
+      setJoinFeedback({
+        tone: "error",
+        message: toFriendlyError(err) || "Invalid or expired invite code.",
+        actionLabel: "Open join",
+        actionType: "OPEN_JOIN",
       });
-    });
+      throw err;
+    }
   };
 
   const onArchiveProject = async (projectId: string) => {
@@ -371,6 +643,21 @@ export default function App() {
       setError(null);
     }
   };
+
+  if (isAuthChecking) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          padding: 24,
+        }}
+      >
+        <p>Restoring session...</p>
+      </main>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -417,6 +704,10 @@ export default function App() {
       onArchiveProject={onArchiveProject}
       onDeleteProject={onDeleteProject}
       onLeaveProject={onLeaveProject}
+      joinFeedback={joinFeedback}
+      onJoinFeedbackAction={onJoinFeedbackAction}
+      onDismissJoinFeedback={onDismissJoinFeedback}
+      openJoinSignal={openJoinSignal}
       error={error ?? undefined}
     />
   );

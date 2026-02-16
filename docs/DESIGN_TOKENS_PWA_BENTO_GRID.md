@@ -235,8 +235,27 @@ Modes:
   - Input field: paste share link.
   - Input field: invite code.
   - CTA: `Join`.
+  - Success state: show success banner/toast with project name.
+  - Info state: already member.
   - Error state: invalid/expired link or code.
   - Retry path without leaving current screen.
+
+### Frame 03b-1 — Join Result Feedback
+
+- **Name**: `FS-Mobile-Project-Join-Feedback-en`
+- **Purpose**: define post-join feedback UI for deep-link and manual join flow.
+- **Variants**:
+  - `success`: `Joined project: {projectName}`
+  - `info`: `You are already in this project.`
+  - `error`: `Invalid or expired invite code.`
+- **Layout rules**:
+  - Preferred position: top toast under header, or inline status banner in current card stack.
+  - Auto dismiss: 2~3s for success/info; error remains until user dismisses or retries.
+  - Success and info use non-destructive style; error uses destructive style.
+- **Interaction**:
+  - Success after deep-link (`/join?code=...`): navigate to project list and show feedback immediately.
+  - Success after manual join modal: close modal, refresh project list, then show feedback.
+  - Error keeps user in join context and preserves input for retry.
 
 ### Frame 03c — Project Card Actions Sheet
 
@@ -275,6 +294,8 @@ Modes:
 - Project switching is only triggered by project card tap, not by any action in `Frame 03c`.
 - Any destructive action from `Frame 03c` must require `Frame 03d — Project Action Confirm Dialog`.
 - After successful switch/leave/archive/delete, return to `Frame 03` and refresh card list + sync timestamp.
+- After join via link/code succeeds, return to `Frame 03` and show `Frame 03b-1 success` feedback.
+- If join fails, stay in `Frame 03b` with `Frame 03b-1 error` feedback and keep entered value.
 
 ## 5.2 Project Setup & Permissions
 
@@ -444,6 +465,7 @@ Modes:
 12. Empty state module
 13. Exchange rate source badge
 14. Sync status chip (`Offline`, `Syncing`, `Synced`)
+15. Join result feedback component (success/info/error toast or inline banner)
 
 ---
 
@@ -466,6 +488,10 @@ Use these prompts to generate visual references for stakeholder review.
 ### Prompt D — Frame 01 Auth Splash (Production Aligned)
 
 "Design a 390x844 mobile web screen for FairShare in Bento Grid style, using only vector-like UI elements (no raster photo/image). Show a clean hero card with app logo, title 'FairShare', and subtitle 'Split lunches, settle fast.' Include currency chips for USD, TWD, JPY, EUR. Primary button: 'Continue with Google'. Secondary intent buttons: 'Create Project' and 'Join Project'. Do not include email sign-in. Add tiny footer text links for Terms and Privacy. Use warm background (#FFFDF8), rounded cards, green primary CTA (#2E7D6B), orange accent (#F4A259), readable sans-serif type, and generous spacing."
+
+### Prompt E — Join Success/Error Feedback
+
+"Design a mobile project-list screen in Bento Grid style showing post-join feedback states. Include one success toast (`Joined project: Lunch Crew`), one info toast (`You are already in this project.`), and one error banner (`Invalid or expired invite code.`). Keep clear semantic colors: success green soft background, info blue soft background, error red soft background, with accessible contrast and rounded bento corners."
 
 ---
 

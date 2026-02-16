@@ -1,6 +1,8 @@
-import { ApolloClient, ApolloLink, InMemoryCache } from "@apollo/client/core";
-import { setContext } from "@apollo/client/link/context";
-import { onError } from "@apollo/client/link/error";
+import { ApolloClient, InMemoryCache } from "@apollo/client/core";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
+import { ApolloLink } from "@apollo/client/link";
+import { SetContextLink } from "@apollo/client/link/context";
+import { ErrorLink } from "@apollo/client/link/error";
 import { HttpLink } from "@apollo/client/link/http";
 
 const GOOGLE_TOKEN_KEY = "fairshare.googleIdToken";
@@ -9,16 +11,8 @@ const DEV_USER_ID_KEY = "fairshare.devUserId";
 const resolveGraphQLEndpoint = () => {
   const configuredEndpoint = process.env.REACT_APP_GRAPHQL_ENDPOINT;
 
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname.includes("-3000.csb.app")
-  ) {
-    const sandboxEndpoint = `${
-      window.location.protocol
-    }//${window.location.hostname.replace(
-      "-3000.csb.app",
-      "-4000.csb.app"
-    )}/graphql`;
+  if (typeof window !== "undefined" && window.location.hostname.includes("-3000.csb.app")) {
+    const sandboxEndpoint = `${window.location.protocol}//${window.location.hostname.replace("-3000.csb.app", "-4000.csb.app")}/graphql`;
     if (!configuredEndpoint) {
       return sandboxEndpoint;
     }
@@ -72,7 +66,7 @@ export const authStorage = {
       readStorage(GOOGLE_TOKEN_KEY) ||
         readStorage(DEV_USER_ID_KEY) ||
         process.env.REACT_APP_GOOGLE_ID_TOKEN ||
-        process.env.REACT_APP_DEV_USER_ID
+        process.env.REACT_APP_DEV_USER_ID,
     ),
 };
 
@@ -82,13 +76,26 @@ const httpLink = new HttpLink({
   uri: graphqlEndpoint,
 });
 
-const authLink = setContext((_, prevContext) => {
+const toHeaderRecord = (headers: unknown): Record<string, string> => {
+  if (!headers) {
+    return {};
+  }
+  if (typeof Headers !== "undefined" && headers instanceof Headers) {
+    const record: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }
+  return headers as Record<string, string>;
+};
+
+const authLink = new SetContextLink((prevContext) => {
   const runtimeToken = authStorage.getGoogleIdToken();
   const runtimeDevUserId = authStorage.getDevUserId();
-  const googleToken =
-    runtimeToken || process.env.REACT_APP_GOOGLE_ID_TOKEN || "";
+  const googleToken = runtimeToken || process.env.REACT_APP_GOOGLE_ID_TOKEN || "";
   const devUserId = runtimeDevUserId || process.env.REACT_APP_DEV_USER_ID || "";
-  const headers = (prevContext.headers ?? {}) as Record<string, string>;
+  const headers = toHeaderRecord(prevContext.headers);
 
   return {
     headers: {
@@ -99,19 +106,24 @@ const authLink = setContext((_, prevContext) => {
   };
 });
 
-const errorLink = onError(({ graphQLErrors, networkError }) => {
-  const unauthenticated = Boolean(
-    graphQLErrors?.some(
-      (graphQLError) => graphQLError.extensions?.code === "UNAUTHENTICATED"
-    )
-  );
+const errorLink = new ErrorLink(({ error }) => {
+  let unauthenticated = false;
+
+  if (CombinedGraphQLErrors.is(error)) {
+    unauthenticated = error.errors.some(
+      (graphQLError) => graphQLError.extensions?.code === "UNAUTHENTICATED",
+    );
+  }
+
+  const message = typeof error?.message === "string" ? error.message : "";
+  const isStoreResetCancellation = message.includes("Store reset while query was in flight");
 
   if (unauthenticated && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("fairshare:unauthenticated"));
   }
 
-  if (networkError) {
-    console.error("[GraphQL network error]", networkError);
+  if (!unauthenticated && !isStoreResetCancellation) {
+    console.error("[GraphQL error]", error);
   }
 });
 

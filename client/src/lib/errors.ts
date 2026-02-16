@@ -4,8 +4,10 @@ export const toFriendlyError = (error: unknown) => {
   }
 
   const maybeError = error as { message?: unknown };
-  const message =
-    typeof maybeError.message === "string" ? maybeError.message : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  if (message.includes("Store reset while query was in flight")) {
+    return "";
+  }
   if (message.includes("UNAUTHENTICATED")) {
     return "Authentication required. Please continue with Google sign-in.";
   }
