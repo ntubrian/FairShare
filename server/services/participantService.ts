@@ -32,9 +32,22 @@ const trimAndRequire = (value: string) => {
 };
 
 export const participantService = {
-  async listParticipants(projectId: string, context: GraphQLContext) {
+  async listParticipants(
+    projectId: string,
+    context: GraphQLContext,
+    options?: { page?: number | null; pageSize?: number | null }
+  ) {
     await projectService.ensureReadable(projectId, context);
-    const rows = await participantRepository.listByProject(projectId);
+    const page =
+      options?.page && options.page > 0 ? Math.floor(options.page) : undefined;
+    const pageSize =
+      options?.pageSize && options.pageSize > 0
+        ? Math.min(100, Math.floor(options.pageSize))
+        : undefined;
+    const rows = await participantRepository.listByProject(projectId, {
+      page,
+      pageSize,
+    });
     return rows.map(toParticipant);
   },
 

@@ -9,6 +9,7 @@ import { appError } from "../lib/errors";
 import {
   ProjectMemberWithUserRow,
   ProjectRow,
+  ProjectSummaryRow,
   projectRepository,
 } from "../repositories/projectRepository";
 import { participantRepository } from "../repositories/participantRepository";
@@ -76,6 +77,30 @@ type GraphQLProject = {
   agreedRates: GraphQLAgreedRate[];
   createdAt: string;
   updatedAt: string;
+};
+
+type GraphQLProjectSummary = {
+  id: string;
+  name: string;
+  targetCurrency: string;
+  agreedRateFirst: boolean;
+  status: string;
+  inviteCode: string;
+  inviteLink: string;
+  memberCount: number;
+  viewerRole: MemberRole;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GraphQLProjectPage = {
+  items: GraphQLProjectSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 };
 
 const projectInviteLink = (inviteCode: string) =>
@@ -182,6 +207,34 @@ const trimAndRequire = (value: string, fieldName: string) => {
   }
   return trimmed;
 };
+
+const normalizePage = (page: number | null | undefined) => {
+  if (!page || !Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+  return Math.floor(page);
+};
+
+const normalizePageSize = (pageSize: number | null | undefined) => {
+  if (!pageSize || !Number.isFinite(pageSize) || pageSize < 1) {
+    return 10;
+  }
+  return Math.min(50, Math.floor(pageSize));
+};
+
+const mapProjectSummary = (row: ProjectSummaryRow): GraphQLProjectSummary => ({
+  id: row.id,
+  name: row.name,
+  targetCurrency: row.target_currency,
+  agreedRateFirst: row.agreed_rate_first,
+  status: row.status,
+  inviteCode: row.invite_code,
+  inviteLink: projectInviteLink(row.invite_code),
+  memberCount: row.member_count,
+  viewerRole: row.viewer_role,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
 
 const buildProject = async (
   projectRow: ProjectRow
@@ -295,6 +348,39 @@ export const projectService = {
     return Promise.all(projects.map((project) => buildProject(project)));
   },
 
+  async listProjectSummaries(
+    context: GraphQLContext,
+    input: {
+      page?: number | null;
+      pageSize?: number | null;
+      search?: string | null;
+    }
+  ): Promise<GraphQLProjectPage> {
+    const viewer = requireViewer(context);
+    const page = normalizePage(input.page);
+    const pageSize = normalizePageSize(input.pageSize);
+    const search = input.search?.trim();
+
+    const { items, total } = await projectRepository.listForUserPage({
+      userId: viewer.id,
+      page,
+      pageSize,
+      search,
+    });
+
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
+
+    return {
+      items: items.map(mapProjectSummary),
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    };
+  },
+
   async getProject(projectId: string, context: GraphQLContext) {
     const project = await this.ensureReadable(projectId, context);
     return buildProject(project);
@@ -331,6 +417,7 @@ export const projectService = {
       "Project",
       "Viewer cannot create projects."
     );
+
     const project = await projectRepository.createProject({
       name: trimAndRequire(input.name, "Project name"),
       targetCurrency: assertCurrency(input.targetCurrency),

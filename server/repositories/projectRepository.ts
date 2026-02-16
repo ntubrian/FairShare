@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, sql } from "drizzle-orm";
 import { appError } from "../lib/errors";
 import { Currency, MemberRole, ProjectStatus } from "../types";
 import { getDb } from "../db/pool";
@@ -25,6 +25,20 @@ export type ProjectMemberWithUserRow = {
   email: string;
   app_role: MemberRole;
   avatar_url: string | null;
+};
+
+export type ProjectSummaryRow = {
+  id: string;
+  name: string;
+  target_currency: Currency;
+  agreed_rate_first: boolean;
+  status: ProjectStatus;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  viewer_role: MemberRole;
+  member_count: number;
 };
 
 const makeInviteCode = () =>
@@ -69,6 +83,53 @@ export const projectRepository = {
       .from(project)
       .where(eq(project.inviteCode, inviteCode));
     return row ?? null;
+  },
+
+  async listForUserPage(input: {
+    userId: string;
+    page: number;
+    pageSize: number;
+    search?: string;
+  }): Promise<{ items: ProjectSummaryRow[]; total: number }> {
+    const db = getDb();
+    const offset = (input.page - 1) * input.pageSize;
+    const normalizedSearch = input.search?.trim();
+    const whereClause = normalizedSearch
+      ? and(
+          eq(projectMember.userId, input.userId),
+          ilike(project.name, `%${normalizedSearch}%`)
+        )
+      : eq(projectMember.userId, input.userId);
+
+    const [countRow, items] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(project)
+        .innerJoin(projectMember, eq(projectMember.projectId, project.id))
+        .where(whereClause)
+        .then((rows) => rows[0]),
+      db
+        .select({
+          ...projectSelect,
+          viewer_role: projectMember.role,
+          member_count: sql<number>`(
+            select count(*)::int
+            from project_member pm
+            where pm.project_id = ${project.id}
+          )`,
+        })
+        .from(project)
+        .innerJoin(projectMember, eq(projectMember.projectId, project.id))
+        .where(whereClause)
+        .orderBy(desc(project.updatedAt))
+        .limit(input.pageSize)
+        .offset(offset),
+    ]);
+
+    return {
+      items,
+      total: Number(countRow?.count ?? 0),
+    };
   },
 
   async createProject(input: {

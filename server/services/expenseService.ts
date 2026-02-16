@@ -85,12 +85,22 @@ export const expenseService = {
   async listExpenses(
     projectId: string,
     includeDeleted: boolean,
-    context: GraphQLContext
+    context: GraphQLContext,
+    options?: { page?: number | null; pageSize?: number | null }
   ) {
     await projectService.ensureReadable(projectId, context);
+    const page =
+      options?.page && options.page > 0 ? Math.floor(options.page) : undefined;
+    const pageSize =
+      options?.pageSize && options.pageSize > 0
+        ? Math.min(100, Math.floor(options.pageSize))
+        : undefined;
     const [participants, expenses] = await Promise.all([
       participantRepository.listByProject(projectId),
-      expenseRepository.listByProject(projectId, includeDeleted),
+      expenseRepository.listByProject(projectId, includeDeleted, {
+        page,
+        pageSize,
+      }),
     ]);
     const mappedParticipants = participants.map(toParticipant);
     const participantsById = new Map(

@@ -152,6 +152,66 @@ export class Project {
 }
 
 @ObjectType()
+export class ProjectSummary {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => String)
+  name!: string;
+
+  @Field(() => String)
+  targetCurrency!: string;
+
+  @Field(() => Boolean)
+  agreedRateFirst!: boolean;
+
+  @Field(() => ProjectStatusEnum)
+  status!: ProjectStatus;
+
+  @Field(() => String)
+  inviteCode!: string;
+
+  @Field(() => String)
+  inviteLink!: string;
+
+  @Field(() => Int)
+  memberCount!: number;
+
+  @Field(() => MemberRoleEnum)
+  viewerRole!: MemberRole;
+
+  @Field(() => String)
+  createdAt!: string;
+
+  @Field(() => String)
+  updatedAt!: string;
+}
+
+@ObjectType()
+export class ProjectPage {
+  @Field(() => [ProjectSummary])
+  items!: ProjectSummary[];
+
+  @Field(() => Int)
+  page!: number;
+
+  @Field(() => Int)
+  pageSize!: number;
+
+  @Field(() => Int)
+  total!: number;
+
+  @Field(() => Int)
+  totalPages!: number;
+
+  @Field(() => Boolean)
+  hasNextPage!: boolean;
+
+  @Field(() => Boolean)
+  hasPreviousPage!: boolean;
+}
+
+@ObjectType()
 export class InviteValidation {
   @Field(() => Boolean)
   ok!: boolean;

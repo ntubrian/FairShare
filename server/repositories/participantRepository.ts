@@ -10,9 +10,21 @@ export type ParticipantRow = {
 };
 
 export const participantRepository = {
-  async listByProject(projectId: string) {
+  async listByProject(
+    projectId: string,
+    options?: {
+      page?: number;
+      pageSize?: number;
+    }
+  ) {
     const db = getDb();
-    return db
+    const page =
+      options?.page && options.page > 0 ? Math.floor(options.page) : 1;
+    const pageSize =
+      options?.pageSize && options.pageSize > 0
+        ? Math.floor(options.pageSize)
+        : 0;
+    const baseQuery = db
       .select({
         id: participant.id,
         project_id: participant.projectId,
@@ -22,6 +34,12 @@ export const participantRepository = {
       .from(participant)
       .where(eq(participant.projectId, projectId))
       .orderBy(asc(participant.createdAt));
+
+    if (!pageSize) {
+      return baseQuery;
+    }
+
+    return baseQuery.limit(pageSize).offset((page - 1) * pageSize);
   },
 
   async findById(participantId: string) {

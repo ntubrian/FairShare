@@ -1,4 +1,4 @@
-import { Arg, Authorized, Ctx, ID, Query, Resolver } from "type-graphql";
+import { Arg, Authorized, Ctx, ID, Int, Query, Resolver } from "type-graphql";
 import { assertCurrency, normalizeLocale } from "../../services/domainUtils";
 import { exchangeRateService } from "../../services/exchangeRateService";
 import { expenseService } from "../../services/expenseService";
@@ -12,6 +12,7 @@ import {
   InviteValidation,
   Participant,
   PdfChecklist,
+  ProjectPage,
   Project,
   RateSnapshot,
   SettlementResult,
@@ -28,7 +29,9 @@ export class QueryResolver {
   @Authorized()
   @Query(() => User)
   viewer(@Ctx() context: GraphQLContext) {
-    return projectService.toGraphQLViewer(projectService.requireViewer(context));
+    return projectService.toGraphQLViewer(
+      projectService.requireViewer(context)
+    );
   }
 
   @Authorized()
@@ -44,11 +47,23 @@ export class QueryResolver {
   }
 
   @Authorized()
-  @Query(() => Project, { nullable: true })
-  project(
-    @Arg("id", () => ID) id: string,
-    @Ctx() context: GraphQLContext,
+  @Query(() => ProjectPage)
+  projectSummaries(
+    @Arg("page", () => Int, { defaultValue: 1 }) page: number,
+    @Arg("pageSize", () => Int, { defaultValue: 10 }) pageSize: number,
+    @Arg("search", () => String, { nullable: true }) search: string | null,
+    @Ctx() context: GraphQLContext
   ) {
+    return projectService.listProjectSummaries(context, {
+      page,
+      pageSize,
+      search,
+    });
+  }
+
+  @Authorized()
+  @Query(() => Project, { nullable: true })
+  project(@Arg("id", () => ID) id: string, @Ctx() context: GraphQLContext) {
     return projectService.getProject(id, context);
   }
 
@@ -62,19 +77,35 @@ export class QueryResolver {
   @Query(() => [Participant])
   participants(
     @Arg("projectId", () => ID) projectId: string,
-    @Ctx() context: GraphQLContext,
+    @Arg("page", () => Int, { defaultValue: 1 }) page: number,
+    @Arg("pageSize", () => Int, { defaultValue: 50 }) pageSize: number,
+    @Ctx() context: GraphQLContext
   ) {
-    return participantService.listParticipants(projectId, context);
+    return participantService.listParticipants(projectId, context, {
+      page,
+      pageSize,
+    });
   }
 
   @Authorized()
   @Query(() => [Expense])
   expenses(
     @Arg("projectId", () => ID) projectId: string,
-    @Arg("includeDeleted", () => Boolean, { defaultValue: false }) includeDeleted: boolean,
-    @Ctx() context: GraphQLContext,
+    @Arg("includeDeleted", () => Boolean, { defaultValue: false })
+    includeDeleted: boolean,
+    @Arg("page", () => Int, { defaultValue: 1 }) page: number,
+    @Arg("pageSize", () => Int, { defaultValue: 50 }) pageSize: number,
+    @Ctx() context: GraphQLContext
   ) {
-    return expenseService.listExpenses(projectId, Boolean(includeDeleted), context);
+    return expenseService.listExpenses(
+      projectId,
+      Boolean(includeDeleted),
+      context,
+      {
+        page,
+        pageSize,
+      }
+    );
   }
 
   @Query(() => LocaleEnum)
@@ -85,7 +116,8 @@ export class QueryResolver {
   @Authorized()
   @Query(() => RateSnapshot)
   exchangeRates(
-    @Arg("baseCurrency", () => CurrencyEnum, { defaultValue: CurrencyEnum.TWD }) baseCurrency: CurrencyEnum,
+    @Arg("baseCurrency", () => CurrencyEnum, { defaultValue: CurrencyEnum.TWD })
+    baseCurrency: CurrencyEnum
   ) {
     return exchangeRateService.listRates(assertCurrency(baseCurrency));
   }
@@ -94,19 +126,29 @@ export class QueryResolver {
   @Query(() => SettlementResult)
   calculateSettlement(
     @Arg("projectId", () => ID) projectId: string,
-    @Arg("includeDeleted", () => Boolean, { defaultValue: false }) includeDeleted: boolean,
-    @Ctx() context: GraphQLContext,
+    @Arg("includeDeleted", () => Boolean, { defaultValue: false })
+    includeDeleted: boolean,
+    @Ctx() context: GraphQLContext
   ) {
-    return settlementService.calculate(projectId, Boolean(includeDeleted), context);
+    return settlementService.calculate(
+      projectId,
+      Boolean(includeDeleted),
+      context
+    );
   }
 
   @Authorized()
   @Query(() => PdfChecklist)
   pdfExportPreview(
     @Arg("projectId", () => ID) projectId: string,
-    @Arg("includeSoftDeleted", () => Boolean, { defaultValue: false }) includeSoftDeleted: boolean,
-    @Ctx() context: GraphQLContext,
+    @Arg("includeSoftDeleted", () => Boolean, { defaultValue: false })
+    includeSoftDeleted: boolean,
+    @Ctx() context: GraphQLContext
   ) {
-    return settlementService.buildPdfPreview(projectId, Boolean(includeSoftDeleted), context);
+    return settlementService.buildPdfPreview(
+      projectId,
+      Boolean(includeSoftDeleted),
+      context
+    );
   }
 }
