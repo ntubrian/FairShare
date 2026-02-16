@@ -10,6 +10,7 @@ import { projectService } from "./projectService";
 type GraphQLParticipant = {
   id: string;
   projectId: string;
+  userId: string | null;
   name: string;
   createdAt: string;
 };
@@ -57,11 +58,13 @@ type GraphQLProjectDebitCreditSummary = {
 const toParticipant = (row: {
   id: string;
   project_id: string;
+  user_id: string | null;
   name: string;
   created_at: string;
 }): GraphQLParticipant => ({
   id: row.id,
   projectId: row.project_id,
+  userId: row.user_id,
   name: row.name,
   createdAt: row.created_at,
 });

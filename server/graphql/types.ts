@@ -45,6 +45,9 @@ export class Participant {
   @Field(() => ID)
   projectId!: string;
 
+  @Field(() => ID, { nullable: true })
+  userId!: string | null;
+
   @Field(() => String)
   name!: string;
 

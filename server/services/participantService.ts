@@ -7,6 +7,7 @@ import { projectService } from "./projectService";
 type GraphQLParticipant = {
   id: string;
   projectId: string;
+  userId: string | null;
   name: string;
   createdAt: string;
 };
@@ -14,11 +15,13 @@ type GraphQLParticipant = {
 const toParticipant = (row: {
   id: string;
   project_id: string;
+  user_id: string | null;
   name: string;
   created_at: string;
 }): GraphQLParticipant => ({
   id: row.id,
   projectId: row.project_id,
+  userId: row.user_id,
   name: row.name,
   createdAt: row.created_at,
 });
@@ -94,6 +97,19 @@ export const participantService = {
       );
       if (!participant) {
         throw appError("Participant not found.", "NOT_FOUND");
+      }
+      if (participant.user_id) {
+        const linkedMember = await projectRepository.findMember(
+          projectId,
+          participant.user_id,
+          tx
+        );
+        if (linkedMember) {
+          throw appError(
+            "Cannot remove participant linked to an active project member.",
+            "BAD_USER_INPUT"
+          );
+        }
       }
       const hasActiveExpenses = await participantRepository.hasActiveExpenses(
         participantId,

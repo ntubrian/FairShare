@@ -37,6 +37,7 @@ type GraphQLProjectMember = {
 type GraphQLParticipant = {
   id: string;
   projectId: string;
+  userId: string | null;
   name: string;
   createdAt: string;
 };
@@ -117,11 +118,13 @@ const mapMemberUser = (row: ProjectMemberWithUserRow): GraphQLUser => ({
 const mapParticipant = (row: {
   id: string;
   project_id: string;
+  user_id: string | null;
   name: string;
   created_at: string;
 }): GraphQLParticipant => ({
   id: row.id,
   projectId: row.project_id,
+  userId: row.user_id,
   name: row.name,
   createdAt: row.created_at,
 });
@@ -207,6 +210,35 @@ const trimAndRequire = (value: string, fieldName: string) => {
     throw appError(`${fieldName} is required.`, "BAD_USER_INPUT");
   }
   return trimmed;
+};
+
+const ensureParticipantForUser = async (
+  projectId: string,
+  userId: string,
+  displayName: string,
+  executor?: Parameters<typeof participantRepository.ensureLinkedUser>[3]
+) => {
+  await participantRepository.ensureLinkedUser(
+    projectId,
+    userId,
+    displayName,
+    executor
+  );
+};
+
+const ensureParticipantsForProjectMembers = async (
+  projectId: string,
+  executor?: Parameters<typeof participantRepository.ensureLinkedUser>[3]
+) => {
+  const members = await projectRepository.listMembers(projectId, executor);
+  for (const member of members) {
+    await ensureParticipantForUser(
+      projectId,
+      member.user_id,
+      member.display_name,
+      executor
+    );
+  }
 };
 
 const normalizePage = (page: number | null | undefined) => {
@@ -425,6 +457,14 @@ export const projectService = {
       agreedRateFirst: input.agreedRateFirst,
       createdBy: viewer.id,
     });
+    await projectRepository.withProjectWriteLock(project.id, async (tx) => {
+      await ensureParticipantForUser(
+        project.id,
+        viewer.id,
+        viewer.displayName,
+        tx
+      );
+    });
     return buildProject(project);
   },
 
@@ -545,6 +585,7 @@ export const projectService = {
           "VIEWER",
           tx
         );
+        await ensureParticipantsForProjectMembers(project.id, tx);
         if (changed) {
           await projectRepository.touchProject(project.id, tx);
         }

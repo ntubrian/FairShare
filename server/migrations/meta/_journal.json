@@ -8,6 +8,13 @@
       "when": 1771166673379,
       "tag": "0000_sour_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771233871550,
+      "tag": "0001_clumsy_white_queen",
+      "breakpoints": true
     }
   ]
 }

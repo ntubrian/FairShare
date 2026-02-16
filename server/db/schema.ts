@@ -73,15 +73,21 @@ export const participant = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => appUser.id, {
+      onDelete: "set null",
+    }),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
   },
   (table) => ({
-    projectNameUnique: uniqueIndex("participant_project_name_unique").on(
+    manualNameUnique: uniqueIndex("participant_project_manual_name_unique")
+      .on(table.projectId, sql`lower(${table.name})`)
+      .where(sql`${table.userId} IS NULL`),
+    projectUserUnique: uniqueIndex("participant_project_user_unique").on(
       table.projectId,
-      sql`lower(${table.name})`
+      table.userId
     ),
   })
 );
