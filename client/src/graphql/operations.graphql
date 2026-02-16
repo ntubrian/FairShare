@@ -1,0 +1,105 @@
+query Health {
+  health
+}
+
+query Viewer {
+  viewer {
+    id
+    displayName
+    email
+    accountRole
+  }
+}
+
+query ProjectSummaries($page: Int!, $pageSize: Int!, $search: String) {
+  projectSummaries(page: $page, pageSize: $pageSize, search: $search) {
+    page
+    pageSize
+    total
+    totalPages
+    hasNextPage
+    hasPreviousPage
+    items {
+      id
+      name
+      targetCurrency
+      agreedRateFirst
+      status
+      inviteCode
+      inviteLink
+      memberCount
+      viewerRole
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation CreateProject(
+  $name: String!
+  $targetCurrency: String
+  $agreedRateFirst: Boolean
+) {
+  createProject(
+    name: $name
+    targetCurrency: $targetCurrency
+    agreedRateFirst: $agreedRateFirst
+  ) {
+    id
+    name
+    targetCurrency
+    agreedRateFirst
+    status
+    inviteCode
+    inviteLink
+    memberCount
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateProject(
+  $projectId: ID!
+  $name: String
+  $targetCurrency: String
+  $agreedRateFirst: Boolean
+) {
+  updateProject(
+    projectId: $projectId
+    name: $name
+    targetCurrency: $targetCurrency
+    agreedRateFirst: $agreedRateFirst
+  ) {
+    id
+    name
+    targetCurrency
+    agreedRateFirst
+    status
+    inviteCode
+    inviteLink
+    memberCount
+    createdAt
+    updatedAt
+  }
+}
+
+mutation JoinProject($inviteCode: String!) {
+  joinProject(inviteCode: $inviteCode) {
+    id
+  }
+}
+
+mutation ArchiveProject($projectId: ID!) {
+  archiveProject(projectId: $projectId) {
+    id
+    status
+  }
+}
+
+mutation DeleteProject($projectId: ID!) {
+  deleteProject(projectId: $projectId)
+}
+
+mutation LeaveProject($projectId: ID!) {
+  leaveProject(projectId: $projectId)
+}

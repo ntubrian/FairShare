@@ -1,9 +1,9 @@
 schema: ./graphql/schema.graphql
 documents:
-  - ./src/graphql/**/*.graphql
+  - ./client/src/graphql/**/*.graphql
 generates:
-  ./src/graphql/generated.ts:
+  ./client/src/graphql/generated.ts:
     plugins:
       - typescript
       - typescript-operations
-      - typescript-graphql-request
+      - typed-document-node
