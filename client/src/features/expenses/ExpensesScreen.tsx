@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   useLazyQuery,
   useMutation,
@@ -172,6 +172,8 @@ export const ExpensesScreen = ({
   const [settlementResult, setSettlementResult] =
     useState<SettlementResultState | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: projectData,
@@ -281,6 +283,35 @@ export const ExpensesScreen = ({
     }, 2200);
     return () => window.clearTimeout(timer);
   }, [realtimeNotice]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (!accountMenuRef.current?.contains(target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     if (!addOpen) {
@@ -614,6 +645,11 @@ export const ExpensesScreen = ({
     }
   };
 
+  const onLogoutFromMenu = async () => {
+    setAccountMenuOpen(false);
+    await onLogout();
+  };
+
   const isLoading =
     projectLoading || participantsLoading || expensesLoading || summaryLoading;
   const disableMutationControls = createExpenseLoading || !canMutate;
@@ -641,14 +677,35 @@ export const ExpensesScreen = ({
           >
             Synced
           </button>
-          <button
-            type="button"
-            className={styles.avatarButton}
-            onClick={() => void onLogout()}
-            aria-label="Logout"
-          >
-            {viewerName.charAt(0).toUpperCase() || "U"}
-          </button>
+          <div className={styles.accountMenu} ref={accountMenuRef}>
+            <button
+              type="button"
+              className={styles.avatarButton}
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              aria-label="Account menu"
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+            >
+              {viewerName.charAt(0).toUpperCase() || "U"}
+            </button>
+            {accountMenuOpen ? (
+              <div
+                className={styles.accountDropdown}
+                role="menu"
+                aria-label="Account actions"
+              >
+                <p className={styles.accountName}>{viewerName}</p>
+                <button
+                  type="button"
+                  className={styles.accountLogoutButton}
+                  role="menuitem"
+                  onClick={() => void onLogoutFromMenu()}
+                >
+                  Log out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 

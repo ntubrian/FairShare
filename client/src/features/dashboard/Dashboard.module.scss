@@ -194,6 +194,49 @@
   cursor: pointer;
 }
 
+.accountMenu {
+  position: relative;
+}
+
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  z-index: 15;
+}
+
+.accountName {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 2px 4px;
+  overflow-wrap: anywhere;
+}
+
+.accountLogoutButton {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: #9f1239;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.accountLogoutButton:hover:not(:disabled) {
+  background: #fff1f2;
+  border-color: #f6c7c7;
+}
+
 .projectsToolbar {
   display: grid;
   gap: 10px;
@@ -219,6 +262,14 @@
   background: #fefefe;
   border-radius: 18px;
   padding: 16px;
+}
+
+.projectCardClickable {
+  cursor: pointer;
+}
+
+.projectCardClickable:hover {
+  border-color: #2e7d6b;
 }
 
 .projectCardArchived {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { JoinProjectModal } from "./components/JoinProjectModal";
 import { ProjectActionSheet } from "./components/ProjectActionSheet";
@@ -110,6 +110,8 @@ export const DashboardScreen = ({
   const [confirmState, setConfirmState] = useState<ConfirmState>(
     DEFAULT_CONFIRM_STATE
   );
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (openJoinSignal <= 0) {
@@ -117,6 +119,35 @@ export const DashboardScreen = ({
     }
     setJoinOpen(true);
   }, [openJoinSignal]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (!accountMenuRef.current?.contains(target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   const pageCaption = useMemo(() => {
     if (projectPage.total === 0) {
@@ -207,6 +238,11 @@ export const DashboardScreen = ({
     setSheetProject(null);
   };
 
+  const onLogoutFromMenu = async () => {
+    setAccountMenuOpen(false);
+    await onLogout();
+  };
+
   return (
     <main className={`${styles.appShell} ${styles.projectsShell}`}>
       <header className={`${styles.projectsHeader} ${styles.card}`}>
@@ -230,14 +266,35 @@ export const DashboardScreen = ({
             />
             {refreshing ? "Syncing..." : "Synced"}
           </button>
-          <button
-            type="button"
-            className={styles.avatarButton}
-            onClick={() => void onLogout()}
-            aria-label="Logout"
-          >
-            {viewerName.charAt(0).toUpperCase() || "U"}
-          </button>
+          <div className={styles.accountMenu} ref={accountMenuRef}>
+            <button
+              type="button"
+              className={styles.avatarButton}
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              aria-label="Account menu"
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+            >
+              {viewerName.charAt(0).toUpperCase() || "U"}
+            </button>
+            {accountMenuOpen ? (
+              <div
+                className={styles.accountDropdown}
+                role="menu"
+                aria-label="Account actions"
+              >
+                <p className={styles.accountName}>{viewerName}</p>
+                <button
+                  type="button"
+                  className={styles.accountLogoutButton}
+                  role="menuitem"
+                  onClick={() => void onLogoutFromMenu()}
+                >
+                  Log out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
