@@ -647,10 +647,21 @@ export const MembersScreen = ({
             const secondaryIdentityLabel = isLinkedMember
               ? linkedEmail || "Linked project member"
               : "Manual participant";
+            const isBusyRemoving = removeBusyParticipantId === participant.id;
             const disableRemove =
               !canManageParticipants ||
               isLinkedMember ||
               Boolean(removeBusyParticipantId);
+            const removeButtonClassName = `${styles.removeButton} ${
+              isLinkedMember
+                ? styles.removeButtonLock
+                : styles.removeButtonDanger
+            } ${isBusyRemoving ? styles.removeButtonBusy : ""}`;
+            const removeButtonText = isBusyRemoving
+              ? "..."
+              : isLinkedMember
+              ? "Locked"
+              : "Remove";
 
             return (
               <article
@@ -688,22 +699,23 @@ export const MembersScreen = ({
                 </div>
                 <button
                   type="button"
-                  className={styles.removeButton}
+                  className={removeButtonClassName}
                   onClick={() =>
                     void onRemoveParticipant(participant.id, participant.name)
                   }
                   disabled={disableRemove}
+                  aria-label={
+                    isLinkedMember
+                      ? "Locked member participant"
+                      : "Remove participant"
+                  }
                   title={
                     isLinkedMember
                       ? "Linked members cannot be removed from participants."
                       : undefined
                   }
                 >
-                  {removeBusyParticipantId === participant.id
-                    ? "..."
-                    : isLinkedMember
-                    ? "Lock"
-                    : "X"}
+                  {removeButtonText}
                 </button>
               </article>
             );

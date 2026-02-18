@@ -159,10 +159,10 @@
 }
 
 .identityCollisionHint {
-  border: 1px solid #d7e4f8;
-  border-radius: 12px;
-  background: #f4f8ff;
-  color: #1e3a8a;
+  border: 1px solid #ece9dc;
+  border-radius: 10px;
+  background: #faf9f5;
+  color: #5c5a4f;
   padding: 8px 10px;
   font-size: 12px;
 }
@@ -182,7 +182,7 @@
 .memberMeta {
   display: flex;
   gap: 10px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .avatar {
@@ -206,8 +206,8 @@
 
 .memberEmail {
   color: var(--text-secondary);
-  font-size: 13px;
-  margin-top: 2px;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .participantBadgeRow {
@@ -219,38 +219,100 @@
 }
 
 .identityBadge {
-  border-radius: 999px;
-  border: 1px solid var(--border-default);
-  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 2px 7px;
   font-size: 11px;
   font-weight: 700;
 }
 
 .identityBadgeManual {
-  border-color: #d6d3c9;
-  background: #f8f6ef;
-  color: #4b5563;
+  border-color: #e7e5dc;
+  background: #f6f5f2;
+  color: #5c5a50;
 }
 
 .identityBadgeLinked {
-  border-color: #c8dccf;
-  background: #ecf8f1;
-  color: #166534;
+  border-color: #dce6dd;
+  background: #f2f7f2;
+  color: #2f5d43;
 }
 
 .collisionBadge {
-  border-radius: 999px;
-  border: 1px solid #f0d0ab;
-  background: #fff7ed;
-  color: #9a3412;
-  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #ece3cc;
+  background: #fbf8ef;
+  color: #7a5c2f;
+  padding: 2px 7px;
   font-size: 11px;
   font-weight: 700;
 }
 
 .participantRowCollision {
-  border-color: #f0d0ab;
-  background: linear-gradient(180deg, #fffefc 0%, #fff7ed 100%);
+  border-color: #e8dfc9;
+  background: #fffdfa;
+}
+
+.participantRow {
+  border-color: #e8e6df;
+  background: #ffffff;
+  box-shadow: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.participantRow .avatar {
+  border-color: #dfddd4;
+  background: #f4f3ee;
+  color: #47453b;
+}
+
+.participantRow:hover {
+  border-color: #dddacf;
+  background: #faf9f6;
+}
+
+.removeButton {
+  justify-self: end;
+  align-self: center;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.removeButtonLock {
+  border-color: #e4e2d9;
+  background: #f7f6f2;
+  color: #6a675b;
+}
+
+.removeButtonDanger {
+  border-color: #ecd9d9;
+  background: #faf4f4;
+  color: #8b4040;
+}
+
+.removeButtonLock:hover:not(:disabled) {
+  border-color: #dddacf;
+  background: #f2f1ed;
+}
+
+.removeButtonDanger:hover:not(:disabled) {
+  border-color: #e5c4c4;
+  background: #f8ecec;
+}
+
+.removeButtonBusy {
+  letter-spacing: 0;
+}
+
+.removeButton:disabled {
+  opacity: 0.7;
 }
 
 .rowHint {
@@ -285,18 +347,6 @@
   border: 1px solid var(--border-default);
   background: #fff;
   color: var(--text-primary);
-}
-
-.removeButton {
-  min-width: 40px;
-  min-height: 40px;
-  border-radius: 12px;
-  border: 1px solid var(--border-default);
-  background: #fff;
-  color: #7f1d1d;
-  padding: 0;
-  font-size: 20px;
-  line-height: 1;
 }
 
 .addRow {
@@ -390,12 +440,22 @@
     font-size: 18px;
   }
 
-  .memberRow,
-  .participantRow {
+  .memberRow {
     grid-template-columns: 1fr;
+  }
+
+  .participantRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 
   .roleField {
     min-width: 0;
+  }
+
+  .removeButton {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
   }
 }
