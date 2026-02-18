@@ -1,0 +1,487 @@
+query Health {
+  health
+}
+
+query Viewer {
+  viewer {
+    id
+    displayName
+    email
+    accountRole
+  }
+}
+
+query ProjectSummaries($page: Int!, $pageSize: Int!, $search: String) {
+  projectSummaries(page: $page, pageSize: $pageSize, search: $search) {
+    page
+    pageSize
+    total
+    totalPages
+    hasNextPage
+    hasPreviousPage
+    items {
+      id
+      name
+      targetCurrency
+      agreedRateFirst
+      status
+      inviteCode
+      inviteLink
+      memberCount
+      viewerRole
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+query ProjectDetail($projectId: ID!) {
+  project(id: $projectId) {
+    id
+    name
+    targetCurrency
+    agreedRateFirst
+    agreedRates {
+      fromCurrency
+      toCurrency
+      rate
+      updatedAt
+    }
+    status
+    members {
+      userId
+      role
+      user {
+        id
+        displayName
+        email
+        accountRole
+      }
+    }
+  }
+}
+
+query ProjectParticipants(
+  $projectId: ID!
+  $page: Int! = 1
+  $pageSize: Int! = 100
+) {
+  participants(projectId: $projectId, page: $page, pageSize: $pageSize) {
+    id
+    projectId
+    userId
+    name
+    createdAt
+  }
+}
+
+query ProjectExpenses(
+  $projectId: ID!
+  $page: Int! = 1
+  $pageSize: Int! = 200
+  $includeDeleted: Boolean = false
+) {
+  expenses(
+    projectId: $projectId
+    page: $page
+    pageSize: $pageSize
+    includeDeleted: $includeDeleted
+  ) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+query DebitCreditSummary($projectId: ID!, $includeDeleted: Boolean = false) {
+  debitCreditSummary(projectId: $projectId, includeDeleted: $includeDeleted) {
+    projectId
+    currency
+    generatedAt
+    totalDebitCount
+    totalCreditCount
+    rows {
+      participantId
+      participant {
+        id
+        name
+      }
+      debitAmount
+      creditAmount
+      debitCount
+      creditCount
+      netAmount
+    }
+  }
+}
+
+query CalculateSettlement($projectId: ID!, $includeDeleted: Boolean = false) {
+  calculateSettlement(projectId: $projectId, includeDeleted: $includeDeleted) {
+    projectId
+    targetCurrency
+    generatedAt
+    rateSource
+    instructions {
+      fromParticipantId
+      toParticipantId
+      amount
+      currency
+      fromParticipant {
+        id
+        name
+      }
+      toParticipant {
+        id
+        name
+      }
+    }
+    rateSnapshot {
+      baseCurrency
+      source
+      fetchedAt
+      rates {
+        currency
+        rate
+      }
+    }
+  }
+}
+
+query PdfExportPreview($projectId: ID!, $includeSoftDeleted: Boolean = false) {
+  pdfExportPreview(
+    projectId: $projectId
+    includeSoftDeleted: $includeSoftDeleted
+  ) {
+    projectName
+    exportTime
+    targetCurrency
+    rateSnapshotIncluded
+    settlementIncluded
+    expenseDetailsIncluded
+    includeSoftDeleted
+    instructionCount
+    expenseCount
+  }
+}
+
+subscription ExpenseAdded($projectId: ID!) {
+  expenseAdded(projectId: $projectId) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation CreateProject(
+  $name: String!
+  $targetCurrency: String
+  $agreedRateFirst: Boolean
+) {
+  createProject(
+    name: $name
+    targetCurrency: $targetCurrency
+    agreedRateFirst: $agreedRateFirst
+  ) {
+    id
+    name
+    targetCurrency
+    agreedRateFirst
+    status
+    inviteCode
+    inviteLink
+    memberCount
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateExpense(
+  $projectId: ID!
+  $payerId: ID!
+  $amount: Float!
+  $currency: Currency!
+  $description: String
+  $occurredAt: String
+  $splitMode: SplitMode
+  $splits: [ExpenseSplitInput!]
+) {
+  createExpense(
+    projectId: $projectId
+    payerId: $payerId
+    amount: $amount
+    currency: $currency
+    description: $description
+    occurredAt: $occurredAt
+    splitMode: $splitMode
+    splits: $splits
+  ) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation UpdateExpense(
+  $projectId: ID!
+  $expenseId: ID!
+  $payerId: ID
+  $amount: Float
+  $currency: Currency
+  $description: String
+  $occurredAt: String
+  $splitMode: SplitMode
+  $splits: [ExpenseSplitInput!]
+) {
+  updateExpense(
+    projectId: $projectId
+    expenseId: $expenseId
+    payerId: $payerId
+    amount: $amount
+    currency: $currency
+    description: $description
+    occurredAt: $occurredAt
+    splitMode: $splitMode
+    splits: $splits
+  ) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation SoftDeleteExpense($projectId: ID!, $expenseId: ID!) {
+  softDeleteExpense(projectId: $projectId, expenseId: $expenseId) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation RestoreExpense($projectId: ID!, $expenseId: ID!) {
+  restoreExpense(projectId: $projectId, expenseId: $expenseId) {
+    id
+    projectId
+    payerId
+    payer {
+      id
+      name
+    }
+    amount
+    currency
+    splitMode
+    description
+    occurredAt
+    createdAt
+    updatedAt
+    deletedAt
+    splits {
+      participantId
+      amount
+      shares
+      participant {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation UpdateProject(
+  $projectId: ID!
+  $name: String
+  $targetCurrency: String
+  $agreedRateFirst: Boolean
+) {
+  updateProject(
+    projectId: $projectId
+    name: $name
+    targetCurrency: $targetCurrency
+    agreedRateFirst: $agreedRateFirst
+  ) {
+    id
+    name
+    targetCurrency
+    agreedRateFirst
+    status
+    inviteCode
+    inviteLink
+    memberCount
+    createdAt
+    updatedAt
+  }
+}
+
+mutation SetAgreedRate(
+  $projectId: ID!
+  $fromCurrency: Currency!
+  $toCurrency: Currency!
+  $rate: Float!
+) {
+  setAgreedRate(
+    projectId: $projectId
+    fromCurrency: $fromCurrency
+    toCurrency: $toCurrency
+    rate: $rate
+  ) {
+    id
+    targetCurrency
+    agreedRateFirst
+    agreedRates {
+      fromCurrency
+      toCurrency
+      rate
+      updatedAt
+    }
+  }
+}
+
+mutation JoinProject($inviteCode: String!) {
+  joinProject(inviteCode: $inviteCode) {
+    id
+  }
+}
+
+mutation ArchiveProject($projectId: ID!) {
+  archiveProject(projectId: $projectId) {
+    id
+    status
+  }
+}
+
+mutation DeleteProject($projectId: ID!) {
+  deleteProject(projectId: $projectId)
+}
+
+mutation LeaveProject($projectId: ID!) {
+  leaveProject(projectId: $projectId)
+}
+
+mutation AddParticipant($projectId: ID!, $name: String!) {
+  addParticipant(projectId: $projectId, name: $name) {
+    id
+    projectId
+    userId
+    name
+    createdAt
+  }
+}
+
+mutation RemoveParticipant($projectId: ID!, $participantId: ID!) {
+  removeParticipant(projectId: $projectId, participantId: $participantId)
+}
+
+mutation SetMemberRole($projectId: ID!, $userId: ID!, $role: MemberRole!) {
+  setMemberRole(projectId: $projectId, userId: $userId, role: $role) {
+    id
+    updatedAt
+    members {
+      userId
+      role
+    }
+  }
+}

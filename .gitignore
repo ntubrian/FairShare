@@ -1,1 +1,19 @@
-node_modules
+node_modules/
+build/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.DS_Store
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Generated GraphQL artifacts
+graphql/schema.graphql
+src/graphql/generated.ts

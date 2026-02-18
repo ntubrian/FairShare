@@ -1,0 +1,18 @@
+{
+    "extends": "../tsconfig.json",
+    "include": ["./src/**/*"],
+    "compilerOptions": {
+      "baseUrl": ".",
+      "module": "ESNext",
+      "moduleResolution": "Node",
+      "lib": ["DOM", "DOM.Iterable", "ES2020"],
+      "jsx": "react-jsx",
+      "paths": {
+        "react-router-dom": ["../node_modules/react-router-dom"],
+        "react-router-dom/*": ["../node_modules/react-router-dom/*"],
+        "react-router": ["../node_modules/react-router"],
+        "react-router/*": ["../node_modules/react-router/*"]
+      }
+    }
+  }
+  

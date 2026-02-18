@@ -1,5 +1,67 @@
 # FairShare: Multi-Currency Expense Splitter
 
+## Fullstack (Express + GraphQL + Codegen)
+
+### 1. Install
+
+```bash
+yarn install
+```
+
+### 2. Generate schema and typed frontend SDK
+
+```bash
+yarn graphql:prepare
+```
+
+This runs:
+
+- `yarn schema:generate` -> writes `graphql/schema.graphql`
+- `yarn codegen` -> writes `client/src/graphql/generated.ts`
+
+### 3. Run fullstack dev mode
+
+```bash
+yarn dev
+```
+
+- Frontend: `http://localhost:3000`
+- Backend GraphQL: `http://localhost:4000/graphql`
+- Backend health: `http://localhost:4000/healthz`
+
+### 3.1 PWA notes
+
+- Manifest: `client/public/manifest.json`
+- Service worker: `client/public/sw.js` (registered in production, or set `REACT_APP_ENABLE_SW=true` for local/dev)
+- Install prompt UI is built into `client/src/App.tsx`.
+
+### 4. Run API functional tests
+
+This project uses Node's built-in test runner (`node:test`) with `tsx` (no extra test framework needed).
+
+```bash
+# Requires DATABASE_URL in .env
+yarn test:functional:db
+```
+
+Or run only tests (without auto migration):
+
+```bash
+yarn test:functional
+```
+
+### 5. Drizzle schema workflow
+
+```bash
+# Generate Drizzle migration files from server/db/schema.ts
+yarn db:generate
+
+# Apply runtime SQL migrations in server/migrations
+yarn db:migrate
+```
+
+Auth / authorization guard policy is documented in `docs/AUTH_GUARD_POLICY.md`.
+
 ## What’s This About?
 
 You’ll build a bill-splitting application (similar to Splitwise) using React and TypeScript. This app allows users to manage multiple groups (projects), track expenses in different currencies, and calculate a final settlement plan to show "who owes whom" in a single target currency.
@@ -7,15 +69,18 @@ You’ll build a bill-splitting application (similar to Splitwise) using React a
 ## Main Features
 
 1. **Project Management**
+
    - Create Project: Users can create a new project (e.g., "Japan Trip", "Friday Dinner").
    - Switch Context: Users can switch between different projects via a sidebar or dropdown.
    - Isolation: Data (participants and expenses) must be isolated per project.
 
 2. **Participant Management**
+
    - Manage People: Within a project, users can add or remove participants.
    - Validation: You cannot remove a participant if they already have recorded expenses.
 
 3. **Expense Logging**
+
    - Add Expense: Create a record of who paid what.
      - Payer: Select one person from the participant list.
      - Amount: Number input.
@@ -26,12 +91,14 @@ You’ll build a bill-splitting application (similar to Splitwise) using React a
    - Consider how users can handle mistakes or make corrections in the expenses list.
 
 4. **Settlement & Calculation**
+
    - Target Currency Setting: Each project has a "Settlement Currency" setting (e.g., settle everything in TWD).
    - Calculate Button: A prominent button to trigger the calculation.
      - Generate a list of transactions to settle debts (e.g., "Alice pays Bob $500").
    - Result Display: Open a Dialog/Modal showing the calculation results.
 
 5. **Exchange Rates**
+
    - Use this free API for rates: https://open.er-api.com/v6/latest/TWD
 
 6. **UI Reference**

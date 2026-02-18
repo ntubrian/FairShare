@@ -1,0 +1,9 @@
+schema: ./graphql/schema.graphql
+documents:
+  - ./client/src/graphql/**/*.graphql
+generates:
+  ./client/src/graphql/generated.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typed-document-node

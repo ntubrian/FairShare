@@ -1,0 +1,48 @@
+.inviteLinkBusyOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    background: rgba(15, 23, 42, 0.36);
+    pointer-events: all;
+  }
+  
+  .inviteLinkBusyCard {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    min-width: 240px;
+    padding: 18px 20px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-card);
+    box-shadow: var(--shadow-card);
+  }
+  
+  .inviteLinkBusyCard p {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: center;
+  }
+  
+  .inviteLinkBusySpinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--border-default);
+    border-top-color: var(--brand-primary);
+    border-radius: 999px;
+    animation: inviteLinkSpinnerRotate 900ms linear infinite;
+  }
+  
+  @keyframes inviteLinkSpinnerRotate {
+    from {
+      transform: rotate(0deg);
+    }
+  
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
