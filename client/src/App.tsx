@@ -35,6 +35,8 @@ import { toFriendlyError } from "./lib/errors";
 import { useInstallPrompt } from "./pwa/useInstallPrompt";
 
 const PAGE_SIZE = 6;
+const POST_AUTH_INTENT_KEY = "fairshare.postAuthIntent";
+const PENDING_INVITE_CODE_KEY = "fairshare.pendingInviteCode";
 
 const EMPTY_PAGE: DashboardProjectPage = {
   items: [],
@@ -52,7 +54,7 @@ type JoinFeedback = {
   tone: JoinFeedbackTone;
   message: string;
   actionLabel?: string;
-  actionType?: "RETRY_LINK" | "OPEN_JOIN";
+  actionType?: "OPEN_JOIN";
   inviteCode?: string;
 };
 
@@ -60,6 +62,8 @@ type JoinOutcome = {
   status: "joined" | "already_member";
   projectName: string;
 };
+
+type PostAuthIntent = "create" | "join";
 
 const getInviteCodeFromPath = (pathname: string, search: string) => {
   const segments = pathname.split("/").filter(Boolean);
@@ -76,6 +80,68 @@ const getInviteCodeFromPath = (pathname: string, search: string) => {
 
   const params = new URLSearchParams(search);
   return resolveInviteCode(params.get("code") ?? "");
+};
+
+const getInviteCodeFromNextPath = (nextPath: string) => {
+  if (!nextPath.startsWith("/")) {
+    return "";
+  }
+  try {
+    const url = new URL(nextPath, "http://localhost");
+    return getInviteCodeFromPath(url.pathname, url.search);
+  } catch {
+    return "";
+  }
+};
+
+const readBrowserStorage = (key: string) => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(key) ?? "";
+};
+
+const writeBrowserStorage = (key: string, value: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(key, value);
+};
+
+const removeBrowserStorage = (key: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(key);
+};
+
+const readPostAuthIntent = (): PostAuthIntent | null => {
+  const raw = readBrowserStorage(POST_AUTH_INTENT_KEY);
+  return raw === "create" || raw === "join" ? raw : null;
+};
+
+const persistPostAuthIntent = (intent: PostAuthIntent) => {
+  writeBrowserStorage(POST_AUTH_INTENT_KEY, intent);
+};
+
+const consumePostAuthIntent = (): PostAuthIntent | null => {
+  const value = readPostAuthIntent();
+  removeBrowserStorage(POST_AUTH_INTENT_KEY);
+  return value;
+};
+
+const persistPendingInviteCode = (inviteCode: string) => {
+  const normalized = resolveInviteCode(inviteCode);
+  if (!normalized) {
+    return;
+  }
+  writeBrowserStorage(PENDING_INVITE_CODE_KEY, normalized);
+};
+
+const consumePendingInviteCode = () => {
+  const value = resolveInviteCode(readBrowserStorage(PENDING_INVITE_CODE_KEY));
+  removeBrowserStorage(PENDING_INVITE_CODE_KEY);
+  return value;
 };
 
 export default function App() {
@@ -102,7 +168,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [consumedInviteCode, setConsumedInviteCode] = useState("");
   const [joinFeedback, setJoinFeedback] = useState<JoinFeedback | null>(null);
+  const [openCreateSignal, setOpenCreateSignal] = useState(0);
   const [openJoinSignal, setOpenJoinSignal] = useState(0);
+  const [joinPrefillValue, setJoinPrefillValue] = useState("");
   const [inviteLinkJoinPendingCount, setInviteLinkJoinPendingCount] =
     useState(0);
 
@@ -228,6 +296,41 @@ export default function App() {
     enabled: !isAuthenticated,
     onCredential: onGoogleCredential,
   });
+
+  const onAuthEntryIntent = useCallback(
+    (intent: PostAuthIntent) => {
+      persistPostAuthIntent(intent);
+
+      if (!isOnline) {
+        setError(
+          "You are offline. Intent saved. Reconnect, then continue Google sign-in."
+        );
+        return;
+      }
+
+      if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
+        setError(
+          "Google sign-in is not configured yet. Ask admin to set REACT_APP_GOOGLE_CLIENT_ID."
+        );
+        return;
+      }
+
+      if (googleError) {
+        setError(googleError);
+        return;
+      }
+
+      if (!googleReady) {
+        setError(
+          "Google sign-in is still loading. Intent saved, please wait a moment."
+        );
+        return;
+      }
+
+      setError(null);
+    },
+    [googleError, googleReady, isOnline]
+  );
 
   const projectPage: DashboardProjectPage = useMemo(() => {
     const pageResult = projectPageData?.projectSummaries;
@@ -375,6 +478,7 @@ export default function App() {
       setInviteLinkJoinPendingCount((count) => count + 1);
       try {
         const outcome = await joinProjectByCode(inviteCode);
+        setJoinPrefillValue("");
         if (outcome.status === "already_member") {
           setJoinFeedback({
             tone: "info",
@@ -420,23 +524,11 @@ export default function App() {
     if (joinFeedback.actionType === "OPEN_JOIN") {
       setJoinFeedback(null);
       setPage(1);
+      setJoinPrefillValue(joinFeedback.inviteCode ?? "");
       navigate("/projects", { replace: true });
       setOpenJoinSignal((current) => current + 1);
-      return;
     }
-    if (joinFeedback.actionType === "RETRY_LINK" && joinFeedback.inviteCode) {
-      setError(null);
-      void joinViaInviteLink(joinFeedback.inviteCode).catch((err) => {
-        setJoinFeedback({
-          tone: "error",
-          message: toFriendlyError(err) || "Invalid or expired invite code.",
-          actionLabel: "Retry",
-          actionType: "RETRY_LINK",
-          inviteCode: joinFeedback.inviteCode,
-        });
-      });
-    }
-  }, [joinFeedback, joinViaInviteLink, navigate]);
+  }, [joinFeedback, navigate]);
 
   const onDismissJoinFeedback = useCallback(() => {
     setJoinFeedback(null);
@@ -520,8 +612,22 @@ export default function App() {
 
     if (isAuthenticated) {
       if (isAuthRoute) {
+        const pendingInviteCode = consumePendingInviteCode();
+        if (pendingInviteCode) {
+          consumePostAuthIntent();
+          navigate(`/join?code=${encodeURIComponent(pendingInviteCode)}`, {
+            replace: true,
+          });
+          return;
+        }
+
         const next = new URLSearchParams(location.search).get("next");
         if (next && next.startsWith("/")) {
+          const inviteCodeFromNext = getInviteCodeFromNextPath(next);
+          if (inviteCodeFromNext) {
+            consumePostAuthIntent();
+            persistPendingInviteCode(inviteCodeFromNext);
+          }
           navigate(next, { replace: true });
         } else {
           navigate("/projects", { replace: true });
@@ -531,6 +637,13 @@ export default function App() {
     }
 
     if (!isAuthRoute) {
+      const inviteCode = getInviteCodeFromPath(
+        location.pathname,
+        location.search
+      );
+      if (inviteCode) {
+        persistPendingInviteCode(inviteCode);
+      }
       const next = `${location.pathname}${location.search}`;
       navigate(`/auth?next=${encodeURIComponent(next)}`, { replace: true });
     }
@@ -544,6 +657,42 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (isAuthenticated || !isAuthRoute) {
+      return;
+    }
+
+    const next = new URLSearchParams(location.search).get("next");
+    if (!next || !next.startsWith("/")) {
+      return;
+    }
+
+    const inviteCode = getInviteCodeFromNextPath(next);
+    if (inviteCode) {
+      persistPendingInviteCode(inviteCode);
+    }
+  }, [isAuthenticated, isAuthRoute, location.search]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isAuthRoute) {
+      return;
+    }
+    if (inviteCodeFromLink || inviteLinkBusy) {
+      return;
+    }
+
+    const intent = consumePostAuthIntent();
+    if (!intent) {
+      return;
+    }
+    if (intent === "create") {
+      setOpenCreateSignal((current) => current + 1);
+      return;
+    }
+    setJoinPrefillValue("");
+    setOpenJoinSignal((current) => current + 1);
+  }, [inviteCodeFromLink, inviteLinkBusy, isAuthRoute, isAuthenticated]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
@@ -554,13 +703,18 @@ export default function App() {
       return;
     }
 
+    removeBrowserStorage(PENDING_INVITE_CODE_KEY);
     setConsumedInviteCode(inviteCodeFromLink);
     void joinViaInviteLink(inviteCodeFromLink).catch((err) => {
+      const friendlyMessage =
+        toFriendlyError(err) || "Invalid or expired invite code.";
+      setJoinPrefillValue(inviteCodeFromLink);
+      setOpenJoinSignal((current) => current + 1);
       setJoinFeedback({
         tone: "error",
-        message: toFriendlyError(err) || "Invalid or expired invite code.",
-        actionLabel: "Retry",
-        actionType: "RETRY_LINK",
+        message: friendlyMessage,
+        actionLabel: "Open join",
+        actionType: "OPEN_JOIN",
         inviteCode: inviteCodeFromLink,
       });
       navigate("/projects", { replace: true });
@@ -576,10 +730,13 @@ export default function App() {
   useEffect(() => {
     const handleUnauthenticated = async () => {
       authStorage.clearAll();
+      removeBrowserStorage(POST_AUTH_INTENT_KEY);
+      removeBrowserStorage(PENDING_INVITE_CODE_KEY);
       setAuthHint(false);
       setLastSyncedAt(null);
       setConsumedInviteCode("");
       setJoinFeedback(null);
+      setJoinPrefillValue("");
       setError("Session expired. Please sign in with Google again.");
       navigate("/auth", { replace: true });
       await apolloClient.clearStore();
@@ -610,10 +767,13 @@ export default function App() {
 
   const onLogout = async () => {
     authStorage.clearAll();
+    removeBrowserStorage(POST_AUTH_INTENT_KEY);
+    removeBrowserStorage(PENDING_INVITE_CODE_KEY);
     setAuthHint(false);
     setLastSyncedAt(null);
     setConsumedInviteCode("");
     setJoinFeedback(null);
+    setJoinPrefillValue("");
     navigate("/auth", { replace: true });
     await apolloClient.clearStore();
   };
@@ -654,6 +814,7 @@ export default function App() {
     setError(null);
     try {
       const outcome = await joinProjectByCode(inviteCode);
+      setJoinPrefillValue("");
       if (outcome.status === "already_member") {
         setJoinFeedback({
           tone: "info",
@@ -729,6 +890,7 @@ export default function App() {
         googleReady={googleReady}
         googleError={googleError}
         googleButtonRef={googleButtonRef}
+        onEntryIntent={onAuthEntryIntent}
         canInstall={canInstall}
         onInstall={onInstall}
         showDevBypass={showDevBypass}
@@ -804,7 +966,9 @@ export default function App() {
       joinFeedback={joinFeedback}
       onJoinFeedbackAction={onJoinFeedbackAction}
       onDismissJoinFeedback={onDismissJoinFeedback}
+      openCreateSignal={openCreateSignal}
       openJoinSignal={openJoinSignal}
+      joinPrefillValue={joinPrefillValue}
       error={error ?? undefined}
     />
   );

@@ -48,7 +48,9 @@ type DashboardScreenProps = {
   } | null;
   onJoinFeedbackAction?: () => void;
   onDismissJoinFeedback?: () => void;
+  openCreateSignal?: number;
   openJoinSignal?: number;
+  joinPrefillValue?: string;
   error?: string;
 };
 
@@ -100,7 +102,9 @@ export const DashboardScreen = ({
   joinFeedback,
   onJoinFeedbackAction,
   onDismissJoinFeedback,
+  openCreateSignal = 0,
   openJoinSignal = 0,
+  joinPrefillValue = "",
   error,
 }: DashboardScreenProps) => {
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,6 +118,13 @@ export const DashboardScreen = ({
   );
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (openCreateSignal <= 0) {
+      return;
+    }
+    setCreateOpen(true);
+  }, [openCreateSignal]);
 
   useEffect(() => {
     if (openJoinSignal <= 0) {
@@ -448,6 +459,7 @@ export const DashboardScreen = ({
       <JoinProjectModal
         open={joinOpen}
         busy={actionBusy}
+        prefillValue={joinPrefillValue}
         onClose={() => setJoinOpen(false)}
         onJoin={handleJoin}
       />

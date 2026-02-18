@@ -1,22 +1,52 @@
-import { FormEvent, useState } from "react";
+import React, { FormEvent, useEffect, useState } from "react";
 import styles from "../Dashboard.module.scss";
 
 type JoinProjectModalProps = {
   open: boolean;
   busy: boolean;
+  prefillValue?: string;
   onClose: () => void;
   onJoin: (rawValue: string) => Promise<void>;
 };
 
+const looksLikeJoinLink = (value: string) =>
+  value.includes("://") ||
+  value.startsWith("/join") ||
+  value.startsWith("/invite");
+
 export const JoinProjectModal = ({
   open,
   busy,
+  prefillValue = "",
   onClose,
   onJoin,
 }: JoinProjectModalProps) => {
   const [shareLink, setShareLink] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setValidationError(null);
+    const normalized = prefillValue.trim();
+    if (!normalized) {
+      setShareLink("");
+      setInviteCode("");
+      return;
+    }
+
+    if (looksLikeJoinLink(normalized)) {
+      setShareLink(normalized);
+      setInviteCode("");
+      return;
+    }
+
+    setInviteCode(normalized);
+    setShareLink("");
+  }, [open, prefillValue]);
 
   if (!open) {
     return null;

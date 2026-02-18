@@ -121,6 +121,11 @@
   min-height: 88px;
 }
 
+.authGoogleWrapCtaHighlight {
+  border-color: #b8d2f7;
+  box-shadow: 0 0 0 3px rgba(184, 210, 247, 0.35);
+}
+
 .authGoogleWrapCta > div {
   width: 100%;
   display: flex;
@@ -168,6 +173,7 @@
   justify-content: center;
   gap: 10px;
   letter-spacing: -0.01em;
+  cursor: pointer;
 }
 
 .dot {
@@ -177,10 +183,24 @@
   background: #efa150;
 }
 
-.entryActionBtn:disabled {
-  opacity: 1;
-  cursor: not-allowed;
-  box-shadow: none;
+.entryActionBtn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fffefb 0%, #fff8ef 100%);
+  border-color: #ddd5c8;
+}
+
+.entryActionBtnActive {
+  border-color: #b8d2f7;
+  box-shadow: 0 0 0 2px rgba(184, 210, 247, 0.45);
+}
+
+.entryHintBanner {
+  border: 1px solid #dbe7fb;
+  border-radius: 14px;
+  background: #f4f8ff;
+  color: #1e3a8a;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .ghostButton {

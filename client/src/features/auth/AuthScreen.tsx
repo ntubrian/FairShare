@@ -1,4 +1,4 @@
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useEffect, useState } from "react";
 import styles from "./AuthScreen.module.scss";
 
 type AuthScreenProps = {
@@ -6,6 +6,7 @@ type AuthScreenProps = {
   googleReady: boolean;
   googleError?: string | null;
   googleButtonRef: React.RefObject<HTMLDivElement>;
+  onEntryIntent: (intent: "create" | "join") => void;
   canInstall: boolean;
   onInstall: () => Promise<void> | void;
   showDevBypass: boolean;
@@ -22,6 +23,7 @@ export const AuthScreen = ({
   googleReady,
   googleError,
   googleButtonRef,
+  onEntryIntent,
   canInstall,
   onInstall,
   showDevBypass,
@@ -33,6 +35,24 @@ export const AuthScreen = ({
   error,
 }: AuthScreenProps) => {
   const [guideOpen, setGuideOpen] = useState(false);
+  const [entryHint, setEntryHint] = useState<"create" | "join" | null>(null);
+
+  useEffect(() => {
+    if (!entryHint) {
+      return;
+    }
+    const timer = window.setTimeout(() => setEntryHint(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [entryHint]);
+
+  const onClickEntryAction = (intent: "create" | "join") => {
+    onEntryIntent(intent);
+    setEntryHint(intent);
+    googleButtonRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
 
   return (
     <main className={`${styles.appShell} ${styles.authShell}`}>
@@ -62,7 +82,11 @@ export const AuthScreen = ({
           <span>EUR</span>
         </div>
 
-        <div className={styles.authGoogleWrapCta}>
+        <div
+          className={`${styles.authGoogleWrapCta} ${
+            entryHint ? styles.authGoogleWrapCtaHighlight : ""
+          }`}
+        >
           {googleClientConfigured ? (
             <>
               <div ref={googleButtonRef} />
@@ -82,15 +106,35 @@ export const AuthScreen = ({
         </div>
 
         <div className={styles.authEntryActions}>
-          <button type="button" className={styles.entryActionBtn} disabled>
+          <button
+            type="button"
+            className={`${styles.entryActionBtn} ${
+              entryHint === "create" ? styles.entryActionBtnActive : ""
+            }`}
+            onClick={() => onClickEntryAction("create")}
+          >
             <span className={styles.dot} />
             Create Project
           </button>
-          <button type="button" className={styles.entryActionBtn} disabled>
+          <button
+            type="button"
+            className={`${styles.entryActionBtn} ${
+              entryHint === "join" ? styles.entryActionBtnActive : ""
+            }`}
+            onClick={() => onClickEntryAction("join")}
+          >
             <span className={styles.dot} />
             Join Project
           </button>
         </div>
+        {entryHint ? (
+          <p className={styles.entryHintBanner}>
+            Sign in with Google first, then{" "}
+            {entryHint === "create"
+              ? "create a project from the dashboard."
+              : "join using an invite code from the dashboard."}
+          </p>
+        ) : null}
 
         <button
           type="button"
