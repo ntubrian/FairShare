@@ -170,11 +170,11 @@ export const AuthScreen = ({
         {error ? <p className={styles.errorInline}>{error}</p> : null}
       </section>
 
-      <footer className={styles.authFooterLinks}>
+      {/* <footer className={styles.authFooterLinks}>
         <a href="#terms">Terms</a>
         <span aria-hidden>•</span>
         <a href="#privacy">Privacy</a>
-      </footer>
+      </footer> */}
 
       {guideOpen ? (
         <section
