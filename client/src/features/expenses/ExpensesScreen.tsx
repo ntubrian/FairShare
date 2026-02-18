@@ -15,11 +15,15 @@ import {
   MemberRole,
   PdfExportPreviewDocument,
   ProjectDetailDocument,
+  ProjectExpensesQuery,
   ProjectExpensesDocument,
   ProjectParticipantsDocument,
   ProjectStatus,
   RateSource,
+  RestoreExpenseDocument,
+  SoftDeleteExpenseDocument,
   SplitMode,
+  UpdateExpenseDocument,
 } from "../../graphql/generated";
 import { toFriendlyError } from "../../lib/errors";
 import { formatRelativeTime } from "../dashboard/utils";
@@ -77,6 +81,18 @@ type SettlementResultState = {
   };
 };
 
+type ExpenseListItem = ProjectExpensesQuery["expenses"][number];
+type ExpenseActionBusyState = {
+  expenseId: string;
+  action: "delete" | "restore";
+};
+
+const createDefaultSplitRow = () => ({
+  included: true,
+  amount: "",
+  shares: "1",
+});
+
 const toDateInputValue = (value: Date | string) => {
   const date = typeof value === "string" ? new Date(value) : value;
   if (!Number.isFinite(date.getTime())) {
@@ -90,11 +106,7 @@ const buildDefaultForm = (
 ): ExpenseFormState => {
   const splitRows: ExpenseFormState["splitRows"] = {};
   for (const participant of participants) {
-    splitRows[participant.id] = {
-      included: true,
-      amount: "",
-      shares: "1",
-    };
+    splitRows[participant.id] = createDefaultSplitRow();
   }
 
   return {
@@ -104,6 +116,65 @@ const buildDefaultForm = (
     description: "",
     occurredAt: toDateInputValue(new Date()),
     splitMode: SplitMode.Equal,
+    splitRows,
+  };
+};
+
+const buildFormFromExpense = (
+  expense: ExpenseListItem,
+  participants: Array<{ id: string }>
+): ExpenseFormState => {
+  const splitRows: ExpenseFormState["splitRows"] = {};
+  for (const participant of participants) {
+    splitRows[participant.id] = {
+      included: false,
+      amount: "",
+      shares: "1",
+    };
+  }
+
+  const expenseSplitIds = new Set(
+    expense.splits.map((split) => split.participantId)
+  );
+  const selectedParticipantIds = expenseSplitIds.size
+    ? Array.from(expenseSplitIds)
+    : participants.map((participant) => participant.id);
+
+  for (const participantId of selectedParticipantIds) {
+    const existing = splitRows[participantId];
+    if (!existing) {
+      continue;
+    }
+    splitRows[participantId] = {
+      ...existing,
+      included: true,
+    };
+  }
+
+  for (const split of expense.splits) {
+    const existing = splitRows[split.participantId];
+    if (!existing) {
+      continue;
+    }
+    splitRows[split.participantId] = {
+      ...existing,
+      included: true,
+      amount: split.amount == null ? existing.amount : String(split.amount),
+      shares: split.shares == null ? existing.shares : String(split.shares),
+    };
+  }
+
+  return {
+    payerId: participants.some(
+      (participant) => participant.id === expense.payerId
+    )
+      ? expense.payerId
+      : participants[0]?.id ?? "",
+    amount: String(expense.amount),
+    currency: expense.currency,
+    description: expense.description ?? "",
+    occurredAt: toDateInputValue(expense.occurredAt),
+    splitMode: expense.splitMode,
     splitRows,
   };
 };
@@ -162,6 +233,10 @@ export const ExpensesScreen = ({
   const [payerFilter, setPayerFilter] = useState("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<"ALL" | Currency>("ALL");
   const [addOpen, setAddOpen] = useState(false);
+  const [expenseFormMode, setExpenseFormMode] = useState<"create" | "edit">(
+    "create"
+  );
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [settlementOpen, setSettlementOpen] = useState(false);
   const [form, setForm] = useState<ExpenseFormState>(() =>
     buildDefaultForm([])
@@ -169,6 +244,8 @@ export const ExpensesScreen = ({
   const [localError, setLocalError] = useState<string | null>(null);
   const [settlementError, setSettlementError] = useState<string | null>(null);
   const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
+  const [expenseActionBusy, setExpenseActionBusy] =
+    useState<ExpenseActionBusyState | null>(null);
   const [settlementResult, setSettlementResult] =
     useState<SettlementResultState | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -199,7 +276,7 @@ export const ExpensesScreen = ({
     error: expensesError,
     refetch: refetchExpenses,
   } = useQuery(ProjectExpensesDocument, {
-    variables: { projectId, page: 1, pageSize: 200, includeDeleted: false },
+    variables: { projectId, page: 1, pageSize: 200, includeDeleted: true },
     fetchPolicy: "network-only",
   });
   const {
@@ -215,6 +292,11 @@ export const ExpensesScreen = ({
   const [createExpense, { loading: createExpenseLoading }] = useMutation(
     CreateExpenseDocument
   );
+  const [updateExpense, { loading: updateExpenseLoading }] = useMutation(
+    UpdateExpenseDocument
+  );
+  const [softDeleteExpense] = useMutation(SoftDeleteExpenseDocument);
+  const [restoreExpense] = useMutation(RestoreExpenseDocument);
   const [runCalculateSettlement, { loading: calculateSettlementLoading }] =
     useLazyQuery(CalculateSettlementDocument, {
       fetchPolicy: "network-only",
@@ -247,7 +329,7 @@ export const ExpensesScreen = ({
           projectId,
           page: 1,
           pageSize: 200,
-          includeDeleted: false,
+          includeDeleted: true,
         }),
         refetchSummary({ projectId, includeDeleted: false }),
       ]);
@@ -320,11 +402,8 @@ export const ExpensesScreen = ({
     setForm((current) => {
       const nextSplitRows: ExpenseFormState["splitRows"] = {};
       for (const participant of participants) {
-        nextSplitRows[participant.id] = current.splitRows[participant.id] ?? {
-          included: true,
-          amount: "",
-          shares: "1",
-        };
+        nextSplitRows[participant.id] =
+          current.splitRows[participant.id] ?? createDefaultSplitRow();
       }
       const nextPayerId = participants.some(
         (participant) => participant.id === current.payerId
@@ -342,6 +421,8 @@ export const ExpensesScreen = ({
   useEffect(() => {
     if (!canMutate && addOpen) {
       setAddOpen(false);
+      setEditingExpenseId(null);
+      setExpenseFormMode("create");
     }
   }, [addOpen, canMutate]);
 
@@ -446,6 +527,55 @@ export const ExpensesScreen = ({
     localError,
   ]);
 
+  const expenseActionNotice = useMemo(() => {
+    if (!expenseActionBusy) {
+      return null;
+    }
+    const target = expenses.find(
+      (expense) => expense.id === expenseActionBusy.expenseId
+    );
+    const targetLabel =
+      target?.description?.trim() || target?.payer?.name || "expense";
+    return expenseActionBusy.action === "delete"
+      ? `Deleting ${targetLabel}...`
+      : `Restoring ${targetLabel}...`;
+  }, [expenseActionBusy, expenses]);
+  const expenseActionNoticeClassName =
+    expenseActionBusy?.action === "delete"
+      ? `${styles.actionNotice} ${styles.actionNoticeDelete}`
+      : expenseActionBusy?.action === "restore"
+      ? `${styles.actionNotice} ${styles.actionNoticeRestore}`
+      : styles.actionNotice;
+
+  const closeExpenseForm = () => {
+    if (createExpenseLoading || updateExpenseLoading) {
+      return;
+    }
+    setLocalError(null);
+    setAddOpen(false);
+    setEditingExpenseId(null);
+    setExpenseFormMode("create");
+  };
+
+  const onOpenCreateExpense = () => {
+    setLocalError(null);
+    setExpenseFormMode("create");
+    setEditingExpenseId(null);
+    setForm(buildDefaultForm(participants));
+    setAddOpen(true);
+  };
+
+  const onOpenEditExpense = (expense: ExpenseListItem) => {
+    if (!canMutate || expense.deletedAt) {
+      return;
+    }
+    setLocalError(null);
+    setExpenseFormMode("edit");
+    setEditingExpenseId(expense.id);
+    setForm(buildFormFromExpense(expense, participants));
+    setAddOpen(true);
+  };
+
   const onSubmitExpense = async () => {
     setLocalError(null);
     if (!canMutate) {
@@ -526,23 +656,88 @@ export const ExpensesScreen = ({
     }
 
     try {
-      await createExpense({
-        variables: {
-          projectId,
-          payerId: form.payerId,
-          amount,
-          currency: form.currency,
-          description: form.description.trim() || null,
-          occurredAt: occurredAt.toISOString(),
-          splitMode: form.splitMode,
-          splits,
-        },
-      });
-      setAddOpen(false);
+      const payload = {
+        projectId,
+        payerId: form.payerId,
+        amount,
+        currency: form.currency,
+        description: form.description.trim() || null,
+        occurredAt: occurredAt.toISOString(),
+        splitMode: form.splitMode,
+        splits,
+      };
+
+      if (expenseFormMode === "edit") {
+        if (!editingExpenseId) {
+          setLocalError("Expense to edit is missing.");
+          return;
+        }
+        await updateExpense({
+          variables: {
+            ...payload,
+            expenseId: editingExpenseId,
+          },
+        });
+      } else {
+        await createExpense({
+          variables: payload,
+        });
+      }
+
+      closeExpenseForm();
       setForm(buildDefaultForm(participants));
       await refreshAll();
     } catch (error) {
       setLocalError(toFriendlyError(error));
+    }
+  };
+
+  const onSoftDeleteExpense = async (expenseId: string) => {
+    if (!canMutate) {
+      return;
+    }
+    if (expenseActionBusy) {
+      return;
+    }
+    if (
+      !window.confirm("Soft delete this expense? You can restore it later.")
+    ) {
+      return;
+    }
+
+    setLocalError(null);
+    setExpenseActionBusy({ expenseId, action: "delete" });
+    try {
+      await softDeleteExpense({
+        variables: { projectId, expenseId },
+      });
+      await refreshAll();
+    } catch (error) {
+      setLocalError(toFriendlyError(error) || "Failed to delete expense.");
+    } finally {
+      setExpenseActionBusy(null);
+    }
+  };
+
+  const onRestoreExpense = async (expenseId: string) => {
+    if (!canMutate) {
+      return;
+    }
+    if (expenseActionBusy) {
+      return;
+    }
+
+    setLocalError(null);
+    setExpenseActionBusy({ expenseId, action: "restore" });
+    try {
+      await restoreExpense({
+        variables: { projectId, expenseId },
+      });
+      await refreshAll();
+    } catch (error) {
+      setLocalError(toFriendlyError(error) || "Failed to restore expense.");
+    } finally {
+      setExpenseActionBusy(null);
     }
   };
 
@@ -652,7 +847,8 @@ export const ExpensesScreen = ({
 
   const isLoading =
     projectLoading || participantsLoading || expensesLoading || summaryLoading;
-  const disableMutationControls = createExpenseLoading || !canMutate;
+  const saveExpenseLoading = createExpenseLoading || updateExpenseLoading;
+  const disableMutationControls = saveExpenseLoading || !canMutate;
 
   return (
     <main className={styles.screen}>
@@ -711,6 +907,15 @@ export const ExpensesScreen = ({
 
       {realtimeNotice ? (
         <section className={styles.realtimeNotice}>{realtimeNotice}</section>
+      ) : null}
+      {expenseActionNotice ? (
+        <section
+          className={expenseActionNoticeClassName}
+          role="status"
+          aria-live="polite"
+        >
+          {expenseActionNotice}
+        </section>
       ) : null}
 
       <section className={styles.filterRow}>
@@ -848,23 +1053,95 @@ export const ExpensesScreen = ({
           <article key={group.dayLabel} className={styles.dayCard}>
             <h3>{group.dayLabel}</h3>
             <div className={styles.dayItems}>
-              {group.items.map((item) => (
-                <div key={item.id} className={styles.expenseItem}>
-                  <div>
-                    <strong>{item.payer?.name ?? "Unknown payer"}</strong>
-                    <p>{item.description || "No description"}</p>
+              {group.items.map((item) => {
+                const isBusyRow = expenseActionBusy?.expenseId === item.id;
+                const isDeleteBusy =
+                  isBusyRow && expenseActionBusy?.action === "delete";
+                const isRestoreBusy =
+                  isBusyRow && expenseActionBusy?.action === "restore";
+                const rowBusyAction: ExpenseActionBusyState["action"] | null =
+                  isDeleteBusy ? "delete" : isRestoreBusy ? "restore" : null;
+                const disableRowActions =
+                  Boolean(expenseActionBusy) || disableMutationControls;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`${styles.expenseItem} ${
+                      item.deletedAt ? styles.expenseItemDeleted : ""
+                    }`}
+                    aria-busy={Boolean(rowBusyAction)}
+                  >
+                    <div className={styles.expenseMeta}>
+                      <strong>{item.payer?.name ?? "Unknown payer"}</strong>
+                      <p>{item.description || "No description"}</p>
+                      {item.deletedAt ? (
+                        <span className={styles.deletedBadge}>
+                          Deleted · {formatDateTime(item.deletedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className={styles.expenseAmount}>
+                      <strong>{formatAmount(item.amount)}</strong>
+                      <p>
+                        <span className={styles.currencyChip}>
+                          {item.currency}
+                        </span>
+                        {formatRelativeTime(item.updatedAt || item.createdAt)}
+                      </p>
+                    </div>
+                    {canMutate ? (
+                      <div className={styles.expenseActions}>
+                        {rowBusyAction === "delete" ? (
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            disabled
+                          >
+                            Deleting expense...
+                          </button>
+                        ) : rowBusyAction === "restore" ? (
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            disabled
+                          >
+                            Restoring expense...
+                          </button>
+                        ) : item.deletedAt ? (
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            disabled={disableRowActions}
+                            onClick={() => void onRestoreExpense(item.id)}
+                          >
+                            {isRestoreBusy ? "Restoring..." : "Restore expense"}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              disabled={disableRowActions}
+                              onClick={() => onOpenEditExpense(item)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.deleteButton}
+                              disabled={disableRowActions}
+                              onClick={() => void onSoftDeleteExpense(item.id)}
+                            >
+                              {isDeleteBusy ? "Deleting..." : "Delete expense"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className={styles.expenseAmount}>
-                    <strong>{formatAmount(item.amount)}</strong>
-                    <p>
-                      <span className={styles.currencyChip}>
-                        {item.currency}
-                      </span>
-                      {formatRelativeTime(item.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </article>
         ))}
@@ -874,8 +1151,7 @@ export const ExpensesScreen = ({
         type="button"
         className={styles.fab}
         onClick={() => {
-          setForm(buildDefaultForm(participants));
-          setAddOpen(true);
+          onOpenCreateExpense();
         }}
         aria-label="Add expense"
         disabled={!canMutate}
@@ -888,7 +1164,7 @@ export const ExpensesScreen = ({
         <div
           className={styles.overlay}
           role="presentation"
-          onClick={() => setAddOpen(false)}
+          onClick={closeExpenseForm}
         >
           <section
             className={styles.modal}
@@ -897,11 +1173,13 @@ export const ExpensesScreen = ({
             onClick={(event) => event.stopPropagation()}
           >
             <div className={styles.modalHeader}>
-              <h3>Add Expense</h3>
+              <h3>
+                {expenseFormMode === "edit" ? "Edit Expense" : "Add Expense"}
+              </h3>
               <button
                 type="button"
                 className={styles.closeButton}
-                onClick={() => setAddOpen(false)}
+                onClick={closeExpenseForm}
               >
                 ×
               </button>
@@ -1008,11 +1286,8 @@ export const ExpensesScreen = ({
               <span>Participants</span>
               <div className={styles.splitParticipantList}>
                 {participants.map((participant) => {
-                  const row = form.splitRows[participant.id] ?? {
-                    included: true,
-                    amount: "",
-                    shares: "1",
-                  };
+                  const row =
+                    form.splitRows[participant.id] ?? createDefaultSplitRow();
                   return (
                     <div
                       key={participant.id}
@@ -1029,11 +1304,8 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ?? {
-                                    included: true,
-                                    amount: "",
-                                    shares: "1",
-                                  }),
+                                  ...(current.splitRows[participant.id] ??
+                                    createDefaultSplitRow()),
                                   included: event.target.checked,
                                 },
                               },
@@ -1055,11 +1327,8 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ?? {
-                                    included: true,
-                                    amount: "",
-                                    shares: "1",
-                                  }),
+                                  ...(current.splitRows[participant.id] ??
+                                    createDefaultSplitRow()),
                                   amount: event.target.value,
                                 },
                               },
@@ -1080,11 +1349,8 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ?? {
-                                    included: true,
-                                    amount: "",
-                                    shares: "1",
-                                  }),
+                                  ...(current.splitRows[participant.id] ??
+                                    createDefaultSplitRow()),
                                   shares: event.target.value,
                                 },
                               },
@@ -1116,7 +1382,11 @@ export const ExpensesScreen = ({
               disabled={disableMutationControls}
               onClick={() => void onSubmitExpense()}
             >
-              {createExpenseLoading ? "Saving..." : "Save Expense"}
+              {saveExpenseLoading
+                ? "Saving..."
+                : expenseFormMode === "edit"
+                ? "Save Changes"
+                : "Save Expense"}
             </button>
           </section>
         </div>
