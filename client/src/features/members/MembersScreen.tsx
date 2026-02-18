@@ -67,6 +67,8 @@ const roleLabel = (role: MemberRole) => {
   return "Viewer";
 };
 
+const toParticipantNameKey = (name: string) => name.trim().toLowerCase();
+
 export const MembersScreen = ({
   projectId,
   viewerId,
@@ -136,6 +138,42 @@ export const MembersScreen = ({
     !isProjectArchived &&
     (viewerProjectRole === MemberRole.Owner ||
       viewerProjectRole === MemberRole.Editor);
+  const memberEmailByUserId = useMemo(() => {
+    const next = new Map<string, string>();
+    for (const member of members) {
+      const email = member.user?.email?.trim();
+      if (!email) {
+        continue;
+      }
+      next.set(member.userId, email);
+    }
+    return next;
+  }, [members]);
+  const participantNameStats = useMemo(() => {
+    const next = new Map<
+      string,
+      { total: number; manual: number; linked: number }
+    >();
+    for (const participant of participants) {
+      const key = toParticipantNameKey(participant.name);
+      const current = next.get(key) ?? { total: 0, manual: 0, linked: 0 };
+      current.total += 1;
+      if (participant.userId) {
+        current.linked += 1;
+      } else {
+        current.manual += 1;
+      }
+      next.set(key, current);
+    }
+    return next;
+  }, [participants]);
+  const hasIdentityCollision = useMemo(
+    () =>
+      Array.from(participantNameStats.values()).some(
+        (entry) => entry.manual > 0 && entry.linked > 0
+      ),
+    [participantNameStats]
+  );
 
   const roleSeed = useMemo(
     () => members.map((member) => `${member.userId}:${member.role}`).join("|"),
@@ -587,27 +625,64 @@ export const MembersScreen = ({
               : "Your role cannot manage participants."}
           </p>
         </div>
+        {hasIdentityCollision ? (
+          <p className={styles.identityCollisionHint}>
+            Same-name participants are kept separate when one is Manual and one
+            is Linked.
+          </p>
+        ) : null}
 
         <div className={styles.participantList}>
           {participants.map((participant) => {
             const isLinkedMember = Boolean(participant.userId);
+            const nameStats = participantNameStats.get(
+              toParticipantNameKey(participant.name)
+            );
+            const hasCollisionVariant = Boolean(
+              nameStats && nameStats.manual > 0 && nameStats.linked > 0
+            );
+            const linkedEmail = participant.userId
+              ? memberEmailByUserId.get(participant.userId)
+              : null;
+            const secondaryIdentityLabel = isLinkedMember
+              ? linkedEmail || "Linked project member"
+              : "Manual participant";
             const disableRemove =
               !canManageParticipants ||
               isLinkedMember ||
               Boolean(removeBusyParticipantId);
 
             return (
-              <article key={participant.id} className={styles.participantRow}>
+              <article
+                key={participant.id}
+                className={`${styles.participantRow} ${
+                  hasCollisionVariant ? styles.participantRowCollision : ""
+                }`}
+              >
                 <div className={styles.memberMeta}>
                   <span className={styles.avatar}>
                     {toInitials(participant.name)}
                   </span>
                   <div>
                     <p className={styles.memberName}>{participant.name}</p>
+                    <div className={styles.participantBadgeRow}>
+                      <span
+                        className={`${styles.identityBadge} ${
+                          isLinkedMember
+                            ? styles.identityBadgeLinked
+                            : styles.identityBadgeManual
+                        }`}
+                      >
+                        {isLinkedMember ? "Linked" : "Manual"}
+                      </span>
+                      {hasCollisionVariant ? (
+                        <span className={styles.collisionBadge}>
+                          Name collision
+                        </span>
+                      ) : null}
+                    </div>
                     <p className={styles.memberEmail}>
-                      {isLinkedMember
-                        ? "Linked project member"
-                        : "Manual participant"}
+                      {secondaryIdentityLabel}
                     </p>
                   </div>
                 </div>

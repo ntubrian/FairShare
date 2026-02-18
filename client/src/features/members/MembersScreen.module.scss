@@ -1,335 +1,401 @@
 .screen {
-    width: min(900px, 100%);
-    min-height: 100vh;
-    margin: 0 auto;
-    padding: 16px 14px 80px;
-    display: grid;
-    gap: 12px;
-  }
-  
-  .headerCard {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 10px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 10px;
-  }
-  
-  .backButton {
-    width: 42px;
-    min-height: 42px;
-    border-radius: 12px;
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: var(--text-primary);
-    font-size: 20px;
-    padding: 0;
-  }
-  
+  width: min(900px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 16px 14px 80px;
+  display: grid;
+  gap: 12px;
+}
+
+.headerCard {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.backButton {
+  width: 42px;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-primary);
+  font-size: 20px;
+  padding: 0;
+}
+
+.headerTitle h1 {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.headerTitle p {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.syncButton {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.accountMenu {
+  position: relative;
+}
+
+.avatarButton {
+  min-height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  padding: 0;
+  border: 1px solid #b5d2b2;
+  background: linear-gradient(180deg, #d9ebc8 0%, #c7dfae 100%);
+  color: #1f3b36;
+  font-weight: 700;
+}
+
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  z-index: 15;
+}
+
+.accountName {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 2px 4px;
+  overflow-wrap: anywhere;
+}
+
+.accountLogoutButton {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: #9f1239;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.accountLogoutButton:hover:not(:disabled) {
+  background: #fff1f2;
+  border-color: #f6c7c7;
+}
+
+.noticeBanner {
+  border: 1px solid #b8d2f7;
+  border-radius: var(--radius-md);
+  background: #f4f9ff;
+  color: #1f3b7a;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.errorBanner {
+  border: 1px solid #f0c8c8;
+  border-radius: var(--radius-md);
+  background: #fff5f5;
+  color: #9f1239;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: grid;
+  gap: 3px;
+}
+
+.sectionHeader h2 {
+  font-size: 20px;
+}
+
+.sectionHeader p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.memberList,
+.participantList {
+  display: grid;
+  gap: 8px;
+}
+
+.identityCollisionHint {
+  border: 1px solid #d7e4f8;
+  border-radius: 12px;
+  background: #f4f8ff;
+  color: #1e3a8a;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.memberRow,
+.participantRow {
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.memberMeta {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #dad4c8;
+  background: #f4f2ec;
+  display: inline-grid;
+  place-items: center;
+  color: #2e3948;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.memberName {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.memberEmail {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.participantBadgeRow {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.identityBadge {
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.identityBadgeManual {
+  border-color: #d6d3c9;
+  background: #f8f6ef;
+  color: #4b5563;
+}
+
+.identityBadgeLinked {
+  border-color: #c8dccf;
+  background: #ecf8f1;
+  color: #166534;
+}
+
+.collisionBadge {
+  border-radius: 999px;
+  border: 1px solid #f0d0ab;
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.participantRowCollision {
+  border-color: #f0d0ab;
+  background: linear-gradient(180deg, #fffefc 0%, #fff7ed 100%);
+}
+
+.rowHint {
+  margin-top: 4px;
+  color: #b42318;
+  font-size: 12px;
+}
+
+.roleField {
+  min-width: 118px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sectionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.secondaryButton {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.removeButton {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: #7f1d1d;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.addRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.addRow input {
+  min-width: 0;
+}
+
+.addRow button {
+  min-width: 92px;
+}
+
+.errorInline {
+  color: var(--error-fg);
+  font-size: 13px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.36);
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+
+.dialog {
+  width: min(460px, 100%);
+  border-radius: 18px;
+  border: 1px solid var(--border-default);
+  background: #fff;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.dialog h3 {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.dialog p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dialogHint {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid #ddd8cb;
+  background: #f8f5ec;
+  color: #364152;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.dialogActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transferDialog h3 {
+  font-size: 32px;
+  line-height: 1.08;
+}
+
+.transferConfirmButton {
+  background: #1f7a63;
+  border-color: #1f7a63;
+}
+
+.transferConfirmButton:hover:not(:disabled) {
+  background: #1a6553;
+  border-color: #1a6553;
+}
+
+@media (max-width: 760px) {
   .headerTitle h1 {
-    font-size: 24px;
-    line-height: 1.1;
+    font-size: 21px;
   }
-  
-  .headerTitle p {
-    margin-top: 2px;
-    color: var(--text-secondary);
-    font-size: 13px;
-  }
-  
-  .headerActions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .syncButton {
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: var(--text-primary);
-  }
-  
-  .accountMenu {
-    position: relative;
-  }
-  
-  .avatarButton {
-    min-height: 38px;
-    min-width: 38px;
-    border-radius: 50%;
-    padding: 0;
-    border: 1px solid #b5d2b2;
-    background: linear-gradient(180deg, #d9ebc8 0%, #c7dfae 100%);
-    color: #1f3b36;
-    font-weight: 700;
-  }
-  
-  .accountDropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 180px;
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 8px;
-    display: grid;
-    gap: 8px;
-    z-index: 15;
-  }
-  
-  .accountName {
-    color: var(--text-secondary);
-    font-size: 13px;
-    padding: 2px 4px;
-    overflow-wrap: anywhere;
-  }
-  
-  .accountLogoutButton {
-    width: 100%;
-    min-height: 34px;
-    border-radius: 10px;
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: #9f1239;
-    font-weight: 700;
-    text-align: left;
-    padding: 6px 10px;
-  }
-  
-  .accountLogoutButton:hover:not(:disabled) {
-    background: #fff1f2;
-    border-color: #f6c7c7;
-  }
-  
-  .noticeBanner {
-    border: 1px solid #b8d2f7;
-    border-radius: var(--radius-md);
-    background: #f4f9ff;
-    color: #1f3b7a;
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-  
-  .errorBanner {
-    border: 1px solid #f0c8c8;
-    border-radius: var(--radius-md);
-    background: #fff5f5;
-    color: #9f1239;
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-  
-  .card {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-    padding: 12px;
-    display: grid;
-    gap: 12px;
-  }
-  
-  .sectionHeader {
-    display: grid;
-    gap: 3px;
-  }
-  
+
   .sectionHeader h2 {
-    font-size: 20px;
+    font-size: 18px;
   }
-  
-  .sectionHeader p {
-    color: var(--text-secondary);
-    font-size: 13px;
-  }
-  
-  .memberList,
-  .participantList {
-    display: grid;
-    gap: 8px;
-  }
-  
+
   .memberRow,
   .participantRow {
-    border: 1px solid var(--border-default);
-    border-radius: 14px;
-    background: #fff;
-    padding: 10px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 10px;
-    align-items: center;
+    grid-template-columns: 1fr;
   }
-  
-  .memberMeta {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-  }
-  
-  .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid #dad4c8;
-    background: #f4f2ec;
-    display: inline-grid;
-    place-items: center;
-    color: #2e3948;
-    font-size: 13px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  
-  .memberName {
-    font-weight: 700;
-    font-size: 15px;
-  }
-  
-  .memberEmail {
-    color: var(--text-secondary);
-    font-size: 13px;
-    margin-top: 2px;
-  }
-  
-  .rowHint {
-    margin-top: 4px;
-    color: #b42318;
-    font-size: 12px;
-  }
-  
+
   .roleField {
-    min-width: 118px;
-  }
-  
-  .srOnly {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  
-  .sectionActions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-  
-  .secondaryButton {
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: var(--text-primary);
-  }
-  
-  .removeButton {
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 12px;
-    border: 1px solid var(--border-default);
-    background: #fff;
-    color: #7f1d1d;
-    padding: 0;
-    font-size: 20px;
-    line-height: 1;
-  }
-  
-  .addRow {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px;
-  }
-  
-  .addRow input {
     min-width: 0;
   }
-  
-  .addRow button {
-    min-width: 92px;
-  }
-  
-  .errorInline {
-    color: var(--error-fg);
-    font-size: 13px;
-  }
-  
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.36);
-    z-index: 40;
-    display: grid;
-    place-items: center;
-    padding: 12px;
-  }
-  
-  .dialog {
-    width: min(460px, 100%);
-    border-radius: 18px;
-    border: 1px solid var(--border-default);
-    background: #fff;
-    padding: 16px;
-    display: grid;
-    gap: 10px;
-  }
-  
-  .dialog h3 {
-    font-size: 28px;
-    line-height: 1.1;
-  }
-  
-  .dialog p {
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  
-  .dialogHint {
-    display: inline-flex;
-    width: fit-content;
-    border-radius: 999px;
-    padding: 6px 10px;
-    border: 1px solid #ddd8cb;
-    background: #f8f5ec;
-    color: #364152;
-    font-weight: 600;
-    font-size: 13px;
-  }
-  
-  .dialogActions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-  
-  @media (max-width: 760px) {
-    .headerTitle h1 {
-      font-size: 21px;
-    }
-  
-    .sectionHeader h2 {
-      font-size: 18px;
-    }
-  
-    .memberRow,
-    .participantRow {
-      grid-template-columns: 1fr;
-    }
-  
-    .roleField {
-      min-width: 0;
-    }
-  }
-  
+}
