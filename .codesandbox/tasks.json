@@ -1,17 +1,17 @@
-{
-  "setupTasks": [{ "name": "Install", "command": "yarn install" }],
-  "tasks": {
-    "start": {
-      "name": "start",
-      "command": "yarn start",
-      "runAtStart": true,
-      "preview": { "port": 3000 }
-    },
-    "backend": {
-      "name": "backend",
-      "command": "yarn dev:server",
-      "runAtStart": true,
-      "preview": { "port": 4000 }
-    }
-  }
-}
+// {
+//   "setupTasks": [{ "name": "Install", "command": "yarn install" }],
+//   "tasks": {
+//     "start": {
+//       "name": "start",
+//       "command": "yarn start",
+//       "runAtStart": true,
+//       "preview": { "port": 3000 }
+//     },
+//     "backend": {
+//       "name": "backend",
+//       "command": "yarn dev:server",
+//       "runAtStart": true,
+//       "preview": { "port": 4000 }
+//     }
+//   }
+// }
