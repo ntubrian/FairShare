@@ -16,6 +16,7 @@ import type {
 } from "./features/dashboard/types";
 import { resolveInviteCode } from "./features/dashboard/utils";
 import { ExpensesScreen } from "./features/expenses/ExpensesScreen";
+import { MembersScreen } from "./features/members/MembersScreen";
 import styles from "./App.module.scss";
 import { authStorage, graphqlEndpoint } from "./graphql/apolloClient";
 import {
@@ -133,6 +134,10 @@ export default function App() {
     () => location.pathname.match(/^\/projects\/([^/]+)\/expenses\/?$/),
     [location.pathname]
   );
+  const membersRouteMatch = useMemo(
+    () => location.pathname.match(/^\/projects\/([^/]+)\/members\/?$/),
+    [location.pathname]
+  );
   const expenseProjectId = useMemo(() => {
     const raw = expenseRouteMatch?.[1];
     if (!raw) {
@@ -145,6 +150,18 @@ export default function App() {
     }
   }, [expenseRouteMatch]);
   const isExpensesRoute = Boolean(expenseProjectId);
+  const membersProjectId = useMemo(() => {
+    const raw = membersRouteMatch?.[1];
+    if (!raw) {
+      return "";
+    }
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }, [membersRouteMatch]);
+  const isMembersRoute = Boolean(membersProjectId);
   const inviteCodeFromLink = useMemo(
     () => getInviteCodeFromPath(location.pathname, location.search),
     [location.pathname, location.search]
@@ -737,6 +754,21 @@ export default function App() {
     );
   }
 
+  if (isMembersRoute) {
+    return withInviteBusyOverlay(
+      <MembersScreen
+        projectId={membersProjectId}
+        viewerId={viewerData?.viewer.id ?? ""}
+        viewerName={viewerData?.viewer.displayName ?? ""}
+        onBack={() => navigate("/projects")}
+        onOpenExpenses={() =>
+          navigate(`/projects/${encodeURIComponent(membersProjectId)}/expenses`)
+        }
+        onLogout={onLogout}
+      />
+    );
+  }
+
   return withInviteBusyOverlay(
     <DashboardScreen
       viewerName={viewerData?.viewer.displayName ?? ""}
@@ -762,6 +794,9 @@ export default function App() {
       onJoinProject={onJoinProject}
       onOpenProject={(projectId) =>
         navigate(`/projects/${encodeURIComponent(projectId)}/expenses`)
+      }
+      onManageMembers={(projectId) =>
+        navigate(`/projects/${encodeURIComponent(projectId)}/members`)
       }
       onArchiveProject={onArchiveProject}
       onDeleteProject={onDeleteProject}

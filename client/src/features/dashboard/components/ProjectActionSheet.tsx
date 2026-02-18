@@ -5,7 +5,6 @@ import {
   canDeleteProject,
   canEditProject,
   canLeaveProject,
-  canManageMembers,
 } from "../utils";
 import styles from "../Dashboard.module.scss";
 
@@ -15,6 +14,7 @@ type ProjectActionSheetProps = {
   busy: boolean;
   onClose: () => void;
   onEdit: (project: DashboardProject) => void;
+  onManageMembers: (project: DashboardProject) => void;
   onCopyInvite: (project: DashboardProject) => void;
   onArchive: (project: DashboardProject) => void;
   onDelete: (project: DashboardProject) => void;
@@ -27,6 +27,7 @@ export const ProjectActionSheet = ({
   busy,
   onClose,
   onEdit,
+  onManageMembers,
   onCopyInvite,
   onArchive,
   onDelete,
@@ -37,7 +38,6 @@ export const ProjectActionSheet = ({
   }
 
   const canEdit = canEditProject(project.viewerRole, project.status);
-  const canManage = canManageMembers(project.viewerRole, project.status);
   const canArchive = canArchiveProject(project.viewerRole, project.status);
   const canDelete = canDeleteProject(project.viewerRole);
   const canLeave = canLeaveProject(project.viewerRole);
@@ -82,10 +82,13 @@ export const ProjectActionSheet = ({
           >
             Edit project
           </button>
-          <button type="button" className={styles.sheetAction} disabled>
-            {canManage
-              ? "Manage members and roles (coming soon)"
-              : "Manage members and roles"}
+          <button
+            type="button"
+            className={styles.sheetAction}
+            disabled={busy}
+            onClick={() => onManageMembers(project)}
+          >
+            Manage members and roles
           </button>
           <button
             type="button"

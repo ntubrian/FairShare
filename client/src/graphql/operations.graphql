@@ -45,6 +45,12 @@ query ProjectDetail($projectId: ID!) {
     members {
       userId
       role
+      user {
+        id
+        displayName
+        email
+        accountRole
+      }
     }
   }
 }
@@ -57,6 +63,7 @@ query ProjectParticipants(
   participants(projectId: $projectId, page: $page, pageSize: $pageSize) {
     id
     projectId
+    userId
     name
     createdAt
   }
@@ -315,4 +322,29 @@ mutation DeleteProject($projectId: ID!) {
 
 mutation LeaveProject($projectId: ID!) {
   leaveProject(projectId: $projectId)
+}
+
+mutation AddParticipant($projectId: ID!, $name: String!) {
+  addParticipant(projectId: $projectId, name: $name) {
+    id
+    projectId
+    userId
+    name
+    createdAt
+  }
+}
+
+mutation RemoveParticipant($projectId: ID!, $participantId: ID!) {
+  removeParticipant(projectId: $projectId, participantId: $participantId)
+}
+
+mutation SetMemberRole($projectId: ID!, $userId: ID!, $role: MemberRole!) {
+  setMemberRole(projectId: $projectId, userId: $userId, role: $role) {
+    id
+    updatedAt
+    members {
+      userId
+      role
+    }
+  }
 }

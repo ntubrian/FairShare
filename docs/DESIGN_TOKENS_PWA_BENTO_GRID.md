@@ -245,9 +245,9 @@ Modes:
 - **Name**: `FS-Mobile-Project-Join-Feedback-en`
 - **Purpose**: define post-join feedback UI for deep-link and manual join flow.
 - **Variants**:
-  - `success`: `Joined project: {projectName}`
-  - `info`: `You are already in this project.`
-  - `error`: `Invalid or expired invite code.`
+  - `success`: `Joined project: {projectName}` / `已加入專案：{projectName}`
+  - `info`: `You are already in this project.` / `你已在此專案中。`
+  - `error`: `Invalid or expired invite code.` / `邀請碼無效或已過期。`
 - **Layout rules**:
   - Preferred position: top toast under header, or inline status banner in current card stack.
   - Auto dismiss: 2~3s for success/info; error remains until user dismisses or retries.
@@ -327,6 +327,18 @@ Modes:
   - Participant chips or rows with avatar initials.
   - `Add participant` input + CTA.
   - Remove action on row trailing side.
+- **Identity rules (must mirror product behavior)**:
+  - Show participant identity badge per row:
+    - `Manual` when `userId = null`
+    - `Linked` when `userId != null`
+  - Allow same display name in list when identities differ (manual vs linked).
+  - Do not visually collapse or group same-name rows into one row.
+  - If same-name rows exist, show a stable secondary identifier:
+    - linked row: email or `@handle` when available
+    - manual row: `Manual participant` helper label
+  - Remove affordance:
+    - linked active member row uses lock state
+    - manual row is removable only when no active expenses
 
 ### Frame 07 — Remove Blocked State
 
@@ -466,6 +478,37 @@ Modes:
 13. Exchange rate source badge
 14. Sync status chip (`Offline`, `Syncing`, `Synced`)
 15. Join result feedback component (success/info/error toast or inline banner)
+16. Participant identity badge (`Manual` / `Linked`)
+17. Same-name participant row variant (manual + linked shown together)
+18. Locked remove action variant (for linked member row)
+
+---
+
+## 6.1 Figma Directive Contract (for MCP/component generation)
+
+Use this directive block when generating components from this spec:
+
+1. **Identity separation is required**:
+   - Never merge manual participant and linked member by name.
+   - Generate separate row instances when names are equal.
+2. **Participant row component set**:
+   - Component name: `ParticipantRow`
+   - Required variants:
+     - `identity = manual | linked`
+     - `removeState = enabled | disabled | locked | busy`
+     - `nameCollision = false | true`
+3. **Required row fields**:
+   - Avatar initials
+   - Primary name
+   - Secondary identity text
+   - Optional identity badge (`Manual` or `Linked`)
+   - Trailing remove/lock control
+4. **Collision rendering rules**:
+   - `nameCollision=true` must keep two visible rows (manual and linked), never one merged row.
+   - Rows must keep distinct `participantId` in annotations/properties.
+5. **Expense mapping guidance for prototype notes**:
+   - Attach expense interactions to `participantId`, not display name.
+   - Include one prototype note: `Do not auto-reassign expenses across same-name participants`.
 
 ---
 
