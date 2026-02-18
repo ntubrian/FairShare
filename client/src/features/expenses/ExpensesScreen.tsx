@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  useLazyQuery,
-  useMutation,
-  useQuery,
-  useSubscription,
-} from "@apollo/client/react";
+import { useLazyQuery, useMutation, useQuery, useSubscription } from "@apollo/client/react";
 import {
   CalculateSettlementDocument,
   Currency,
@@ -20,6 +15,7 @@ import {
   ProjectParticipantsDocument,
   ProjectStatus,
   RateSource,
+  SetAgreedRateDocument,
   RestoreExpenseDocument,
   SoftDeleteExpenseDocument,
   SplitMode,
@@ -30,12 +26,7 @@ import { formatRelativeTime } from "../dashboard/utils";
 import { createSettlementPdfBlob } from "./pdfExport";
 import styles from "./ExpensesScreen.module.scss";
 
-const CURRENCY_OPTIONS = [
-  Currency.Usd,
-  Currency.Twd,
-  Currency.Jpy,
-  Currency.Eur,
-];
+const CURRENCY_OPTIONS = [Currency.Usd, Currency.Twd, Currency.Jpy, Currency.Eur];
 
 type ExpensesScreenProps = {
   projectId: string;
@@ -102,7 +93,7 @@ const toDateInputValue = (value: Date | string) => {
 };
 
 const buildDefaultForm = (
-  participants: Array<{ id: string }>
+  participants: Array<{ id: string }>,
 ): ExpenseFormState => {
   const splitRows: ExpenseFormState["splitRows"] = {};
   for (const participant of participants) {
@@ -122,7 +113,7 @@ const buildDefaultForm = (
 
 const buildFormFromExpense = (
   expense: ExpenseListItem,
-  participants: Array<{ id: string }>
+  participants: Array<{ id: string }>,
 ): ExpenseFormState => {
   const splitRows: ExpenseFormState["splitRows"] = {};
   for (const participant of participants) {
@@ -133,9 +124,7 @@ const buildFormFromExpense = (
     };
   }
 
-  const expenseSplitIds = new Set(
-    expense.splits.map((split) => split.participantId)
-  );
+  const expenseSplitIds = new Set(expense.splits.map((split) => split.participantId));
   const selectedParticipantIds = expenseSplitIds.size
     ? Array.from(expenseSplitIds)
     : participants.map((participant) => participant.id);
@@ -165,11 +154,9 @@ const buildFormFromExpense = (
   }
 
   return {
-    payerId: participants.some(
-      (participant) => participant.id === expense.payerId
-    )
+    payerId: participants.some((participant) => participant.id === expense.payerId)
       ? expense.payerId
-      : participants[0]?.id ?? "",
+      : (participants[0]?.id ?? ""),
     amount: String(expense.amount),
     currency: expense.currency,
     description: expense.description ?? "",
@@ -184,11 +171,7 @@ const formatDayLabel = (iso: string) => {
   if (!Number.isFinite(date.getTime())) {
     return "Unknown date";
   }
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(date);
+  return new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(date);
 };
 
 const formatDateTime = (iso: string) => {
@@ -213,42 +196,39 @@ const formatAmount = (amount: number) => {
 };
 
 const toPdfFileName = (projectName: string) => {
-  const normalized =
-    projectName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "project";
+  const normalized = projectName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "project";
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
   return `${normalized}-settlement-${timestamp}.pdf`;
 };
 
-export const ExpensesScreen = ({
-  projectId,
-  viewerId,
-  viewerName,
-  onBack,
-  onLogout,
-}: ExpensesScreenProps) => {
+const asCurrency = (value: string | null | undefined): Currency | null => {
+  if (!value) {
+    return null;
+  }
+  return CURRENCY_OPTIONS.find((currency) => currency === value) ?? null;
+};
+
+export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogout }: ExpensesScreenProps) => {
   const [payerFilter, setPayerFilter] = useState("ALL");
   const [currencyFilter, setCurrencyFilter] = useState<"ALL" | Currency>("ALL");
   const [addOpen, setAddOpen] = useState(false);
-  const [expenseFormMode, setExpenseFormMode] = useState<"create" | "edit">(
-    "create"
-  );
+  const [expenseFormMode, setExpenseFormMode] = useState<"create" | "edit">("create");
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [settlementOpen, setSettlementOpen] = useState(false);
-  const [form, setForm] = useState<ExpenseFormState>(() =>
-    buildDefaultForm([])
-  );
+  const [form, setForm] = useState<ExpenseFormState>(() => buildDefaultForm([]));
   const [localError, setLocalError] = useState<string | null>(null);
   const [settlementError, setSettlementError] = useState<string | null>(null);
   const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
-  const [expenseActionBusy, setExpenseActionBusy] =
-    useState<ExpenseActionBusyState | null>(null);
-  const [settlementResult, setSettlementResult] =
-    useState<SettlementResultState | null>(null);
+  const [expenseActionBusy, setExpenseActionBusy] = useState<ExpenseActionBusyState | null>(null);
+  const [settlementResult, setSettlementResult] = useState<SettlementResultState | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [agreedRateFromCurrency, setAgreedRateFromCurrency] = useState<Currency>(Currency.Usd);
+  const [agreedRateInput, setAgreedRateInput] = useState("");
+  const [agreedRateError, setAgreedRateError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -289,14 +269,11 @@ export const ExpensesScreen = ({
     fetchPolicy: "network-only",
   });
 
-  const [createExpense, { loading: createExpenseLoading }] = useMutation(
-    CreateExpenseDocument
-  );
-  const [updateExpense, { loading: updateExpenseLoading }] = useMutation(
-    UpdateExpenseDocument
-  );
+  const [createExpense, { loading: createExpenseLoading }] = useMutation(CreateExpenseDocument);
+  const [updateExpense, { loading: updateExpenseLoading }] = useMutation(UpdateExpenseDocument);
   const [softDeleteExpense] = useMutation(SoftDeleteExpenseDocument);
   const [restoreExpense] = useMutation(RestoreExpenseDocument);
+  const [setAgreedRate, { loading: setAgreedRateLoading }] = useMutation(SetAgreedRateDocument);
   const [runCalculateSettlement, { loading: calculateSettlementLoading }] =
     useLazyQuery(CalculateSettlementDocument, {
       fetchPolicy: "network-only",
@@ -310,14 +287,27 @@ export const ExpensesScreen = ({
   const summary = summaryData?.debitCreditSummary;
   const project = projectData?.project;
   const viewerProjectRole =
-    project?.members.find((member) => member.userId === viewerId)?.role ??
-    MemberRole.Viewer;
+    project?.members.find((member) => member.userId === viewerId)?.role ?? MemberRole.Viewer;
   const isProjectArchived = project?.status === ProjectStatus.Archived;
   const canMutate =
     Boolean(project) &&
     !isProjectArchived &&
-    (viewerProjectRole === MemberRole.Owner ||
-      viewerProjectRole === MemberRole.Editor);
+    (viewerProjectRole === MemberRole.Owner || viewerProjectRole === MemberRole.Editor);
+  const targetCurrency = asCurrency(project?.targetCurrency) ?? Currency.Twd;
+  const agreedRateCurrencies = useMemo(
+    () => CURRENCY_OPTIONS.filter((currency) => currency !== targetCurrency),
+    [targetCurrency],
+  );
+  const agreedRateMap = useMemo(() => {
+    const next = new Map<Currency, number>();
+    for (const rate of project?.agreedRates ?? []) {
+      if (rate.toCurrency !== targetCurrency || rate.fromCurrency === targetCurrency) {
+        continue;
+      }
+      next.set(rate.fromCurrency, rate.rate);
+    }
+    return next;
+  }, [project?.agreedRates, targetCurrency]);
 
   const refreshAll = async () => {
     setLocalError(null);
@@ -325,12 +315,7 @@ export const ExpensesScreen = ({
       await Promise.all([
         refetchProject({ projectId }),
         refetchParticipants({ projectId, page: 1, pageSize: 100 }),
-        refetchExpenses({
-          projectId,
-          page: 1,
-          pageSize: 200,
-          includeDeleted: true,
-        }),
+        refetchExpenses({ projectId, page: 1, pageSize: 200, includeDeleted: true }),
         refetchSummary({ projectId, includeDeleted: false }),
       ]);
     } catch (error) {
@@ -402,14 +387,11 @@ export const ExpensesScreen = ({
     setForm((current) => {
       const nextSplitRows: ExpenseFormState["splitRows"] = {};
       for (const participant of participants) {
-        nextSplitRows[participant.id] =
-          current.splitRows[participant.id] ?? createDefaultSplitRow();
+        nextSplitRows[participant.id] = current.splitRows[participant.id] ?? createDefaultSplitRow();
       }
-      const nextPayerId = participants.some(
-        (participant) => participant.id === current.payerId
-      )
+      const nextPayerId = participants.some((participant) => participant.id === current.payerId)
         ? current.payerId
-        : participants[0]?.id ?? "";
+        : (participants[0]?.id ?? "");
       return {
         ...current,
         payerId: nextPayerId,
@@ -426,6 +408,25 @@ export const ExpensesScreen = ({
     }
   }, [addOpen, canMutate]);
 
+  useEffect(() => {
+    if (!agreedRateCurrencies.length) {
+      return;
+    }
+    if (agreedRateCurrencies.includes(agreedRateFromCurrency)) {
+      return;
+    }
+    setAgreedRateFromCurrency(agreedRateCurrencies[0]);
+  }, [agreedRateCurrencies, agreedRateFromCurrency]);
+
+  useEffect(() => {
+    if (!agreedRateCurrencies.length) {
+      setAgreedRateInput("");
+      return;
+    }
+    const selectedRate = agreedRateMap.get(agreedRateFromCurrency);
+    setAgreedRateInput(selectedRate == null ? "" : String(selectedRate));
+  }, [agreedRateCurrencies, agreedRateFromCurrency, agreedRateMap]);
+
   const filteredExpenses = useMemo(
     () =>
       expenses.filter((item) => {
@@ -437,7 +438,7 @@ export const ExpensesScreen = ({
         }
         return true;
       }),
-    [currencyFilter, expenses, payerFilter]
+    [currencyFilter, expenses, payerFilter],
   );
 
   const groupedExpenses = useMemo(() => {
@@ -468,9 +469,7 @@ export const ExpensesScreen = ({
   const latestExpenseSync = useMemo(() => {
     let latestTimestamp = 0;
     for (const expense of expenses) {
-      const timestamp = new Date(
-        expense.updatedAt || expense.createdAt
-      ).getTime();
+      const timestamp = new Date(expense.updatedAt || expense.createdAt).getTime();
       if (Number.isFinite(timestamp) && timestamp > latestTimestamp) {
         latestTimestamp = timestamp;
       }
@@ -478,64 +477,46 @@ export const ExpensesScreen = ({
     return latestTimestamp > 0 ? new Date(latestTimestamp).toISOString() : null;
   }, [expenses]);
 
-  const settlementRateSource =
-    settlementResult?.rateSource ??
-    (project?.agreedRateFirst ? RateSource.Agreed : RateSource.Live);
+  const settlementRateSource = settlementResult?.rateSource
+    ?? (project?.agreedRateFirst ? RateSource.Agreed : RateSource.Live);
 
-  const rateSourceLabel =
-    settlementRateSource === RateSource.Live ? "Live API" : "Agreed rate";
+  const rateSourceLabel = settlementRateSource === RateSource.Live ? "Live API" : "Agreed rate";
 
   const rateSnapshotText = useMemo(() => {
     if (!settlementResult) {
       return "--";
     }
-    const usdRate = settlementResult.rateSnapshot.rates.find(
-      (rate) => rate.currency === Currency.Usd
-    );
+    const usdRate = settlementResult.rateSnapshot.rates.find((rate) => rate.currency === Currency.Usd);
     if (usdRate) {
-      return `1 USD = ${usdRate.rate.toFixed(4)} ${
-        settlementResult.targetCurrency
-      }`;
+      return `1 USD = ${usdRate.rate.toFixed(4)} ${settlementResult.targetCurrency}`;
     }
     const first = settlementResult.rateSnapshot.rates[0];
     if (!first) {
       return "--";
     }
-    return `1 ${first.currency} = ${first.rate.toFixed(4)} ${
-      settlementResult.targetCurrency
-    }`;
+    return `1 ${first.currency} = ${first.rate.toFixed(4)} ${settlementResult.targetCurrency}`;
   }, [settlementResult]);
 
   const settlementHint = settlementError
     ? "Unable to calculate settlement. Retry to continue."
     : settlementRateSource === RateSource.Live
-    ? "Using Live API rates (only when no agreed rate exists)."
-    : "Agreed rate will be used (priority over Live API).";
+      ? "Using Live API rates (only when no agreed rate exists)."
+      : "Agreed rate will be used (priority over Live API).";
 
   const screenError = useMemo(() => {
-    const firstError =
-      projectError || participantsError || expensesError || summaryError;
+    const firstError = projectError || participantsError || expensesError || summaryError;
     if (!firstError) {
       return localError;
     }
     return toFriendlyError(firstError) || localError;
-  }, [
-    projectError,
-    participantsError,
-    expensesError,
-    summaryError,
-    localError,
-  ]);
+  }, [projectError, participantsError, expensesError, summaryError, localError]);
 
   const expenseActionNotice = useMemo(() => {
     if (!expenseActionBusy) {
       return null;
     }
-    const target = expenses.find(
-      (expense) => expense.id === expenseActionBusy.expenseId
-    );
-    const targetLabel =
-      target?.description?.trim() || target?.payer?.name || "expense";
+    const target = expenses.find((expense) => expense.id === expenseActionBusy.expenseId);
+    const targetLabel = target?.description?.trim() || target?.payer?.name || "expense";
     return expenseActionBusy.action === "delete"
       ? `Deleting ${targetLabel}...`
       : `Restoring ${targetLabel}...`;
@@ -544,8 +525,8 @@ export const ExpensesScreen = ({
     expenseActionBusy?.action === "delete"
       ? `${styles.actionNotice} ${styles.actionNoticeDelete}`
       : expenseActionBusy?.action === "restore"
-      ? `${styles.actionNotice} ${styles.actionNoticeRestore}`
-      : styles.actionNotice;
+        ? `${styles.actionNotice} ${styles.actionNoticeRestore}`
+        : styles.actionNotice;
 
   const closeExpenseForm = () => {
     if (createExpenseLoading || updateExpenseLoading) {
@@ -608,9 +589,7 @@ export const ExpensesScreen = ({
     let splits: ExpenseSplitInput[] | undefined;
 
     if (form.splitMode === SplitMode.Equal) {
-      splits = selectedParticipantIds.map((participantId) => ({
-        participantId,
-      }));
+      splits = selectedParticipantIds.map((participantId) => ({ participantId }));
     }
 
     if (form.splitMode === SplitMode.Exact) {
@@ -619,9 +598,7 @@ export const ExpensesScreen = ({
       for (const participantId of selectedParticipantIds) {
         const splitAmount = Number(form.splitRows[participantId]?.amount ?? "");
         if (!Number.isFinite(splitAmount) || splitAmount <= 0) {
-          setLocalError(
-            "Exact split requires amount > 0 for each selected participant."
-          );
+          setLocalError("Exact split requires amount > 0 for each selected participant.");
           return;
         }
         exactTotal += splitAmount;
@@ -642,9 +619,7 @@ export const ExpensesScreen = ({
       for (const participantId of selectedParticipantIds) {
         const shares = Number(form.splitRows[participantId]?.shares ?? "");
         if (!Number.isFinite(shares) || shares <= 0) {
-          setLocalError(
-            "Shares split requires shares > 0 for each selected participant."
-          );
+          setLocalError("Shares split requires shares > 0 for each selected participant.");
           return;
         }
         shareSplits.push({
@@ -699,9 +674,7 @@ export const ExpensesScreen = ({
     if (expenseActionBusy) {
       return;
     }
-    if (
-      !window.confirm("Soft delete this expense? You can restore it later.")
-    ) {
+    if (!window.confirm("Soft delete this expense? You can restore it later.")) {
       return;
     }
 
@@ -775,9 +748,38 @@ export const ExpensesScreen = ({
       });
       setSettlementOpen(true);
     } catch (error) {
-      setSettlementError(
-        toFriendlyError(error) || "Unable to calculate settlement."
-      );
+      setSettlementError(toFriendlyError(error) || "Unable to calculate settlement.");
+    }
+  };
+
+  const onSaveAgreedRate = async () => {
+    if (!canMutate || !agreedRateCurrencies.length) {
+      return;
+    }
+
+    const rate = Number(agreedRateInput);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      setAgreedRateError("Rate must be greater than 0.");
+      return;
+    }
+
+    setAgreedRateError(null);
+    setLocalError(null);
+
+    try {
+      await setAgreedRate({
+        variables: {
+          projectId,
+          fromCurrency: agreedRateFromCurrency,
+          toCurrency: targetCurrency,
+          rate,
+        },
+      });
+      await refetchProject({ projectId });
+      setRealtimeNotice(`Saved agreed rate: 1 ${agreedRateFromCurrency} = ${rate.toFixed(4)} ${targetCurrency}`);
+    } catch (error) {
+      const message = toFriendlyError(error) || "Unable to save agreed rate.";
+      setAgreedRateError(message);
     }
   };
 
@@ -845,20 +847,14 @@ export const ExpensesScreen = ({
     await onLogout();
   };
 
-  const isLoading =
-    projectLoading || participantsLoading || expensesLoading || summaryLoading;
+  const isLoading = projectLoading || participantsLoading || expensesLoading || summaryLoading;
   const saveExpenseLoading = createExpenseLoading || updateExpenseLoading;
   const disableMutationControls = saveExpenseLoading || !canMutate;
 
   return (
     <main className={styles.screen}>
       <header className={styles.headerCard}>
-        <button
-          type="button"
-          className={styles.backButton}
-          onClick={onBack}
-          aria-label="Back to projects"
-        >
+        <button type="button" className={styles.backButton} onClick={onBack} aria-label="Back to projects">
           ←
         </button>
         <div className={styles.headerTitle}>
@@ -866,11 +862,7 @@ export const ExpensesScreen = ({
           <p>Expenses</p>
         </div>
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.syncButton}
-            onClick={() => void refreshAll()}
-          >
+          <button type="button" className={styles.syncButton} onClick={() => void refreshAll()}>
             Synced
           </button>
           <div className={styles.accountMenu} ref={accountMenuRef}>
@@ -885,11 +877,7 @@ export const ExpensesScreen = ({
               {viewerName.charAt(0).toUpperCase() || "U"}
             </button>
             {accountMenuOpen ? (
-              <div
-                className={styles.accountDropdown}
-                role="menu"
-                aria-label="Account actions"
-              >
+              <div className={styles.accountDropdown} role="menu" aria-label="Account actions">
                 <p className={styles.accountName}>{viewerName}</p>
                 <button
                   type="button"
@@ -905,15 +893,9 @@ export const ExpensesScreen = ({
         </div>
       </header>
 
-      {realtimeNotice ? (
-        <section className={styles.realtimeNotice}>{realtimeNotice}</section>
-      ) : null}
+      {realtimeNotice ? <section className={styles.realtimeNotice}>{realtimeNotice}</section> : null}
       {expenseActionNotice ? (
-        <section
-          className={expenseActionNoticeClassName}
-          role="status"
-          aria-live="polite"
-        >
+        <section className={expenseActionNoticeClassName} role="status" aria-live="polite">
           {expenseActionNotice}
         </section>
       ) : null}
@@ -921,10 +903,7 @@ export const ExpensesScreen = ({
       <section className={styles.filterRow}>
         <label className={styles.filterField}>
           <span>Payer</span>
-          <select
-            value={payerFilter}
-            onChange={(event) => setPayerFilter(event.target.value)}
-          >
+          <select value={payerFilter} onChange={(event) => setPayerFilter(event.target.value)}>
             <option value="ALL">All</option>
             {participants.map((participant) => (
               <option key={participant.id} value={participant.id}>
@@ -937,9 +916,7 @@ export const ExpensesScreen = ({
           <span>Currency</span>
           <select
             value={currencyFilter}
-            onChange={(event) =>
-              setCurrencyFilter(event.target.value as "ALL" | Currency)
-            }
+            onChange={(event) => setCurrencyFilter(event.target.value as "ALL" | Currency)}
           >
             <option value="ALL">All</option>
             {CURRENCY_OPTIONS.map((currency) => (
@@ -958,9 +935,7 @@ export const ExpensesScreen = ({
             <h2>{project?.name ?? "Project"}</h2>
             <p className={styles.sectionMeta}>Target currency</p>
           </div>
-          <span className={styles.currencyBadge}>
-            {project?.targetCurrency ?? "TWD"}
-          </span>
+          <span className={styles.currencyBadge}>{project?.targetCurrency ?? "TWD"}</span>
         </div>
 
         <div className={styles.rateCard}>
@@ -968,20 +943,75 @@ export const ExpensesScreen = ({
             <strong>Exchange rate</strong>
             <span
               className={`${styles.rateSourceBadge} ${
-                settlementRateSource === RateSource.Live
-                  ? styles.rateSourceLive
-                  : styles.rateSourceAgreed
+                settlementRateSource === RateSource.Live ? styles.rateSourceLive : styles.rateSourceAgreed
               }`}
             >
               {rateSourceLabel}
             </span>
           </div>
           <p className={styles.rateMetaLabel}>Last sync</p>
-          <p className={styles.rateMetaValue}>
-            {latestExpenseSync ? formatDateTime(latestExpenseSync) : "--"}
-          </p>
+          <p className={styles.rateMetaValue}>{latestExpenseSync ? formatDateTime(latestExpenseSync) : "--"}</p>
           <p className={styles.rateMetaLabel}>Rate snapshot</p>
           <p className={styles.rateMetaValue}>{rateSnapshotText}</p>
+          <div className={styles.agreedRatesBlock}>
+            <p className={styles.rateMetaLabel}>Agreed rates to {targetCurrency}</p>
+            <ul className={styles.agreedRatesList}>
+              {agreedRateCurrencies.map((currency) => {
+                const value = agreedRateMap.get(currency);
+                return (
+                  <li key={currency} className={styles.agreedRateItem}>
+                    <span>1 {currency}</span>
+                    <strong>{value == null ? `-- ${targetCurrency}` : `= ${value.toFixed(4)} ${targetCurrency}`}</strong>
+                  </li>
+                );
+              })}
+            </ul>
+            {canMutate ? (
+              <div className={styles.agreedRateEditor}>
+                <label>
+                  <span>From</span>
+                  <select
+                    value={agreedRateFromCurrency}
+                    disabled={setAgreedRateLoading || !agreedRateCurrencies.length}
+                    onChange={(event) => {
+                      setAgreedRateError(null);
+                      setAgreedRateFromCurrency(event.target.value as Currency);
+                    }}
+                  >
+                    {agreedRateCurrencies.map((currency) => (
+                      <option key={currency} value={currency}>
+                        {currency}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Rate (to {targetCurrency})</span>
+                  <input
+                    inputMode="decimal"
+                    value={agreedRateInput}
+                    placeholder={`1 ${agreedRateFromCurrency} = ? ${targetCurrency}`}
+                    disabled={setAgreedRateLoading || !agreedRateCurrencies.length}
+                    onChange={(event) => {
+                      setAgreedRateError(null);
+                      setAgreedRateInput(event.target.value);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.retryButton}
+                  disabled={setAgreedRateLoading || !agreedRateCurrencies.length}
+                  onClick={() => void onSaveAgreedRate()}
+                >
+                  {setAgreedRateLoading ? "Saving rate..." : "Save agreed rate"}
+                </button>
+              </div>
+            ) : (
+              <p className={styles.settlementHint}>Only Owner or Editor can edit agreed rates.</p>
+            )}
+            {agreedRateError ? <p className={styles.errorInline}>{agreedRateError}</p> : null}
+          </div>
           {settlementError ? (
             <div className={styles.rateErrorRow}>
               <span>{settlementError}</span>
@@ -1029,12 +1059,8 @@ export const ExpensesScreen = ({
                   </p>
                 </div>
                 <div className={styles.summaryValues}>
-                  <span className={styles.creditValue}>
-                    +{formatAmount(row.creditAmount)}
-                  </span>
-                  <span className={styles.debitValue}>
-                    -{formatAmount(row.debitAmount)}
-                  </span>
+                  <span className={styles.creditValue}>+{formatAmount(row.creditAmount)}</span>
+                  <span className={styles.debitValue}>-{formatAmount(row.debitAmount)}</span>
                 </div>
               </li>
             ))}
@@ -1055,57 +1081,43 @@ export const ExpensesScreen = ({
             <div className={styles.dayItems}>
               {group.items.map((item) => {
                 const isBusyRow = expenseActionBusy?.expenseId === item.id;
-                const isDeleteBusy =
-                  isBusyRow && expenseActionBusy?.action === "delete";
-                const isRestoreBusy =
-                  isBusyRow && expenseActionBusy?.action === "restore";
-                const rowBusyAction: ExpenseActionBusyState["action"] | null =
-                  isDeleteBusy ? "delete" : isRestoreBusy ? "restore" : null;
-                const disableRowActions =
-                  Boolean(expenseActionBusy) || disableMutationControls;
+                const isDeleteBusy = isBusyRow && expenseActionBusy?.action === "delete";
+                const isRestoreBusy = isBusyRow && expenseActionBusy?.action === "restore";
+                const rowBusyAction: ExpenseActionBusyState["action"] | null = isDeleteBusy
+                  ? "delete"
+                  : isRestoreBusy
+                    ? "restore"
+                    : null;
+                const disableRowActions = Boolean(expenseActionBusy) || disableMutationControls;
 
                 return (
                   <div
                     key={item.id}
-                    className={`${styles.expenseItem} ${
-                      item.deletedAt ? styles.expenseItemDeleted : ""
-                    }`}
+                    className={`${styles.expenseItem} ${item.deletedAt ? styles.expenseItemDeleted : ""}`}
                     aria-busy={Boolean(rowBusyAction)}
                   >
                     <div className={styles.expenseMeta}>
                       <strong>{item.payer?.name ?? "Unknown payer"}</strong>
                       <p>{item.description || "No description"}</p>
                       {item.deletedAt ? (
-                        <span className={styles.deletedBadge}>
-                          Deleted · {formatDateTime(item.deletedAt)}
-                        </span>
+                        <span className={styles.deletedBadge}>Deleted · {formatDateTime(item.deletedAt)}</span>
                       ) : null}
                     </div>
                     <div className={styles.expenseAmount}>
                       <strong>{formatAmount(item.amount)}</strong>
                       <p>
-                        <span className={styles.currencyChip}>
-                          {item.currency}
-                        </span>
+                        <span className={styles.currencyChip}>{item.currency}</span>
                         {formatRelativeTime(item.updatedAt || item.createdAt)}
                       </p>
                     </div>
                     {canMutate ? (
                       <div className={styles.expenseActions}>
                         {rowBusyAction === "delete" ? (
-                          <button
-                            type="button"
-                            className={styles.deleteButton}
-                            disabled
-                          >
+                          <button type="button" className={styles.deleteButton} disabled>
                             Deleting expense...
                           </button>
                         ) : rowBusyAction === "restore" ? (
-                          <button
-                            type="button"
-                            className={styles.secondaryButton}
-                            disabled
-                          >
+                          <button type="button" className={styles.secondaryButton} disabled>
                             Restoring expense...
                           </button>
                         ) : item.deletedAt ? (
@@ -1161,26 +1173,11 @@ export const ExpensesScreen = ({
       </button>
 
       {addOpen ? (
-        <div
-          className={styles.overlay}
-          role="presentation"
-          onClick={closeExpenseForm}
-        >
-          <section
-            className={styles.modal}
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
+        <div className={styles.overlay} role="presentation" onClick={closeExpenseForm}>
+          <section className={styles.modal} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3>
-                {expenseFormMode === "edit" ? "Edit Expense" : "Add Expense"}
-              </h3>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={closeExpenseForm}
-              >
+              <h3>{expenseFormMode === "edit" ? "Edit Expense" : "Add Expense"}</h3>
+              <button type="button" className={styles.closeButton} onClick={closeExpenseForm}>
                 ×
               </button>
             </div>
@@ -1189,12 +1186,7 @@ export const ExpensesScreen = ({
               <select
                 value={form.payerId}
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    payerId: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, payerId: event.target.value }))}
               >
                 <option value="">Select a participant</option>
                 {participants.map((participant) => (
@@ -1211,10 +1203,7 @@ export const ExpensesScreen = ({
                 value={form.occurredAt}
                 disabled={disableMutationControls}
                 onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    occurredAt: event.target.value,
-                  }))
+                  setForm((current) => ({ ...current, occurredAt: event.target.value }))
                 }
               />
             </label>
@@ -1225,39 +1214,28 @@ export const ExpensesScreen = ({
                 inputMode="decimal"
                 placeholder="0.00"
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    amount: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
               />
             </label>
             <label>
               <span>Split</span>
               <div className={styles.splitModeButtons}>
-                {[SplitMode.Equal, SplitMode.Exact, SplitMode.Shares].map(
-                  (mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={`${styles.currencyButton} ${
-                        form.splitMode === mode
-                          ? styles.currencyButtonActive
-                          : ""
-                      }`}
-                      disabled={disableMutationControls}
-                      onClick={() =>
-                        setForm((current) => ({
-                          ...current,
-                          splitMode: mode,
-                        }))
-                      }
-                    >
-                      {mode}
-                    </button>
-                  )
-                )}
+                {[SplitMode.Equal, SplitMode.Exact, SplitMode.Shares].map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`${styles.currencyButton} ${form.splitMode === mode ? styles.currencyButtonActive : ""}`}
+                    disabled={disableMutationControls}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        splitMode: mode,
+                      }))
+                    }
+                  >
+                    {mode}
+                  </button>
+                ))}
               </div>
             </label>
             <label>
@@ -1267,15 +1245,9 @@ export const ExpensesScreen = ({
                   <button
                     key={currency}
                     type="button"
-                    className={`${styles.currencyButton} ${
-                      form.currency === currency
-                        ? styles.currencyButtonActive
-                        : ""
-                    }`}
+                    className={`${styles.currencyButton} ${form.currency === currency ? styles.currencyButtonActive : ""}`}
                     disabled={disableMutationControls}
-                    onClick={() =>
-                      setForm((current) => ({ ...current, currency }))
-                    }
+                    onClick={() => setForm((current) => ({ ...current, currency }))}
                   >
                     {currency}
                   </button>
@@ -1286,13 +1258,9 @@ export const ExpensesScreen = ({
               <span>Participants</span>
               <div className={styles.splitParticipantList}>
                 {participants.map((participant) => {
-                  const row =
-                    form.splitRows[participant.id] ?? createDefaultSplitRow();
+                  const row = form.splitRows[participant.id] ?? createDefaultSplitRow();
                   return (
-                    <div
-                      key={participant.id}
-                      className={styles.splitParticipantRow}
-                    >
+                    <div key={participant.id} className={styles.splitParticipantRow}>
                       <label className={styles.participantToggle}>
                         <input
                           type="checkbox"
@@ -1304,8 +1272,7 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ??
-                                    createDefaultSplitRow()),
+                                  ...(current.splitRows[participant.id] ?? createDefaultSplitRow()),
                                   included: event.target.checked,
                                 },
                               },
@@ -1327,8 +1294,7 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ??
-                                    createDefaultSplitRow()),
+                                  ...(current.splitRows[participant.id] ?? createDefaultSplitRow()),
                                   amount: event.target.value,
                                 },
                               },
@@ -1349,8 +1315,7 @@ export const ExpensesScreen = ({
                               splitRows: {
                                 ...current.splitRows,
                                 [participant.id]: {
-                                  ...(current.splitRows[participant.id] ??
-                                    createDefaultSplitRow()),
+                                  ...(current.splitRows[participant.id] ?? createDefaultSplitRow()),
                                   shares: event.target.value,
                                 },
                               },
@@ -1369,24 +1334,15 @@ export const ExpensesScreen = ({
                 value={form.description}
                 placeholder="e.g., Team lunch"
                 disabled={disableMutationControls}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    description: event.target.value,
-                  }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
               />
             </label>
-            <button
-              type="button"
-              disabled={disableMutationControls}
-              onClick={() => void onSubmitExpense()}
-            >
+            <button type="button" disabled={disableMutationControls} onClick={() => void onSubmitExpense()}>
               {saveExpenseLoading
                 ? "Saving..."
                 : expenseFormMode === "edit"
-                ? "Save Changes"
-                : "Save Expense"}
+                  ? "Save Changes"
+                  : "Save Expense"}
             </button>
           </section>
         </div>
@@ -1411,30 +1367,20 @@ export const ExpensesScreen = ({
             <div className={styles.modalHeader}>
               <div>
                 <h3>Settlement Result</h3>
-                <p className={styles.settlementProjectLabel}>
-                  Project: {project?.name ?? "Project"}
-                </p>
+                <p className={styles.settlementProjectLabel}>Project: {project?.name ?? "Project"}</p>
               </div>
-              <span className={styles.currencyBadge}>
-                {settlementResult.targetCurrency}
-              </span>
+              <span className={styles.currencyBadge}>{settlementResult.targetCurrency}</span>
             </div>
 
             <div className={styles.settlementMetaRow}>
               <span
                 className={`${styles.rateSourceBadge} ${
-                  settlementResult.rateSource === RateSource.Live
-                    ? styles.rateSourceLive
-                    : styles.rateSourceAgreed
+                  settlementResult.rateSource === RateSource.Live ? styles.rateSourceLive : styles.rateSourceAgreed
                 }`}
               >
-                {settlementResult.rateSource === RateSource.Live
-                  ? "Live API"
-                  : "Agreed rate"}
+                {settlementResult.rateSource === RateSource.Live ? "Live API" : "Agreed rate"}
               </span>
-              <span>
-                Calculated: {formatDateTime(settlementResult.generatedAt)}
-              </span>
+              <span>Calculated: {formatDateTime(settlementResult.generatedAt)}</span>
             </div>
 
             {settlementResult.instructions.length > 0 ? (
@@ -1444,9 +1390,8 @@ export const ExpensesScreen = ({
                     key={`${instruction.fromParticipantName}-${instruction.toParticipantName}-${index}`}
                     className={styles.settlementInstructionItem}
                   >
-                    {instruction.fromParticipantName} pays{" "}
-                    {instruction.toParticipantName}{" "}
-                    {formatAmount(instruction.amount)} {instruction.currency}
+                    {instruction.fromParticipantName} pays {instruction.toParticipantName} {formatAmount(instruction.amount)}{" "}
+                    {instruction.currency}
                   </li>
                 ))}
               </ul>
@@ -1466,11 +1411,7 @@ export const ExpensesScreen = ({
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => void onExportPdf()}
-                disabled={exportingPdf}
-              >
+              <button type="button" onClick={() => void onExportPdf()} disabled={exportingPdf}>
                 {exportingPdf ? "Exporting..." : "Export PDF"}
               </button>
             </div>
@@ -1478,9 +1419,7 @@ export const ExpensesScreen = ({
         </div>
       ) : null}
 
-      {screenError ? (
-        <section className={styles.errorBanner}>{screenError}</section>
-      ) : null}
+      {screenError ? <section className={styles.errorBanner}>{screenError}</section> : null}
     </main>
   );
 };

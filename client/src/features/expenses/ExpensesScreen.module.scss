@@ -247,6 +247,60 @@
   color: var(--text-primary);
 }
 
+.agreedRatesBlock {
+  margin-top: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.agreedRatesList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.agreedRateItem {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-card-alt);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.agreedRateEditor {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto;
+  align-items: end;
+}
+
+.agreedRateEditor label {
+  display: grid;
+  gap: 4px;
+}
+
+.agreedRateEditor label span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.errorInline {
+  margin: 0;
+  color: var(--error-fg);
+  font-size: 13px;
+}
+
 .rateErrorRow {
   margin-top: 6px;
   border-radius: var(--radius-md);
@@ -714,5 +768,9 @@
 
   .expenseAmount strong {
     font-size: 20px;
+  }
+
+  .agreedRateEditor {
+    grid-template-columns: 1fr;
   }
 }

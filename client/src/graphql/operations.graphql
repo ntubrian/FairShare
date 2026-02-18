@@ -41,6 +41,12 @@ query ProjectDetail($projectId: ID!) {
     name
     targetCurrency
     agreedRateFirst
+    agreedRates {
+      fromCurrency
+      toCurrency
+      rate
+      updatedAt
+    }
     status
     members {
       userId
@@ -407,6 +413,30 @@ mutation UpdateProject(
     memberCount
     createdAt
     updatedAt
+  }
+}
+
+mutation SetAgreedRate(
+  $projectId: ID!
+  $fromCurrency: Currency!
+  $toCurrency: Currency!
+  $rate: Float!
+) {
+  setAgreedRate(
+    projectId: $projectId
+    fromCurrency: $fromCurrency
+    toCurrency: $toCurrency
+    rate: $rate
+  ) {
+    id
+    targetCurrency
+    agreedRateFirst
+    agreedRates {
+      fromCurrency
+      toCurrency
+      rate
+      updatedAt
+    }
   }
 }
 
