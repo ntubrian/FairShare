@@ -19,7 +19,7 @@
 2. **One-handed interaction**: frequent actions near thumb zone (bottom sheet, floating CTA, sticky footer actions).
 3. **Offline-first perception**: show sync status chips (`Offline`, `Syncing`, `Synced`).
 4. **Installability clarity**: dedicated “Install App” education banner and standalone launch frame.
-5. **Realtime confidence**: subtle updates toast on Pusher events ("Updated just now").
+5. **Realtime confidence**: subtle updates toast on GraphQL subscription events ("Updated just now").
 
 ---
 
@@ -206,6 +206,19 @@ Modes:
 - Tapping `Join Project`:
   - If unauthenticated: start Google OAuth first, then open `Frame 03b — Join Project Entry`.
   - If already authenticated: open `Frame 03b — Join Project Entry` directly.
+- **Stateful continuation contract**:
+  - Auth screen must persist entry intent (`create` or `join`) before OAuth redirect.
+  - After OAuth success, consume intent automatically:
+    - `create` => open `Frame 04` create mode.
+    - `join` => open `Frame 03b`.
+  - If invite deep link exists (`/join?code=...`), auto-join attempt has higher priority than stored entry intent.
+  - If auto-join fails, route into `Frame 03b` with preserved invite code and inline error.
+- **Auth entry feedback states**:
+  - `idle`: default secondary buttons.
+  - `intent-selected`: tapped button shows active style + helper copy (`Sign in first, then continue`).
+  - `google-loading`: show loading hint near Google CTA.
+  - `google-missing-config`: show guidance state, but Create/Join tap still provides feedback.
+  - `offline`: show offline helper banner and disabled submit behavior.
 
 ### Frame 02 — PWA Install Prompt
 
@@ -237,8 +250,8 @@ Modes:
   - CTA: `Join`.
   - Success state: show success banner/toast with project name.
   - Info state: already member.
-  - Error state: invalid/expired link or code.
-  - Retry path without leaving current screen.
+  - Error state: invalid/expired link or code (global join feedback banner).
+  - Retry path: keep context and allow reopening join modal with preserved code.
 
 ### Frame 03b-1 — Join Result Feedback
 
@@ -255,7 +268,17 @@ Modes:
 - **Interaction**:
   - Success after deep-link (`/join?code=...`): navigate to project list and show feedback immediately.
   - Success after manual join modal: close modal, refresh project list, then show feedback.
-  - Error keeps user in join context and preserves input for retry.
+  - Deep-link error: navigate to project list with error feedback + `Open join` action; preserved code pre-fills join modal.
+
+### Frame 03b-2 — Post-Auth Intent Routing
+
+- **Name**: `FS-Mobile-Auth-Intent-Routing-Flow-en`
+- **Purpose**: visualize intent continuation behavior after OAuth callback.
+- **Content**:
+  - Decision: `pendingInviteCode exists?`
+  - Path A: yes => auto-join attempt => success/info/error feedback variants.
+  - Path B: no => consume `postAuthIntent` (`create` / `join`) and open target frame.
+  - Fallback: no intent => default `Frame 03` project list.
 
 ### Frame 03c — Project Card Actions Sheet
 
@@ -270,7 +293,7 @@ Modes:
   - Action `離開專案` (non-Owner, destructive).
   - Action `封存專案` or `刪除專案` (Owner only, destructive).
 - **States**:
-  - Permission-restricted row with helper text: `你目前的角色無法執行此操作`.
+  - Permission-restricted action is disabled (no inline helper text in current UI).
   - Network error toast on action failure with retry.
 
 ### Frame 03d — Project Action Confirm Dialog
@@ -279,7 +302,7 @@ Modes:
 - **Purpose**: prevent unintended destructive project actions from `Frame 03c`.
 - **Variants**:
   - Leave project confirm: `離開後將無法查看此專案資料，除非再次被邀請`.
-  - Archive project confirm: `封存後專案將停止編輯，但可由 Owner 復原`.
+  - Archive project confirm: `封存後專案將停止編輯（目前版本無「復原封存」操作）`.
   - Delete project confirm: `刪除後資料無法復原` (highest risk, Owner only).
 - **Content**:
   - Title + impact description + affected project name.
@@ -295,7 +318,7 @@ Modes:
 - Any destructive action from `Frame 03c` must require `Frame 03d — Project Action Confirm Dialog`.
 - After successful switch/leave/archive/delete, return to `Frame 03` and refresh card list + sync timestamp.
 - After join via link/code succeeds, return to `Frame 03` and show `Frame 03b-1 success` feedback.
-- If join fails, stay in `Frame 03b` with `Frame 03b-1 error` feedback and keep entered value.
+- If join fails from deep link, show `Frame 03b-1 error` on project list with `Open join` action; preserve code for retry prefill.
 
 ## 5.2 Project Setup & Permissions
 
@@ -307,7 +330,7 @@ Modes:
   - Project name (required)
   - Target currency dropdown (USD/TWD/JPY/EUR)
   - Exchange strategy toggle: `Agreed rate first`
-  - Optional agreed rates table
+  - Agreed rate table is edited in Expense screen (not in project modal in current UI)
 
 ### Frame 05 — Role Management
 
@@ -331,7 +354,8 @@ Modes:
   - Show participant identity badge per row:
     - `Manual` when `userId = null`
     - `Linked` when `userId != null`
-  - Allow same display name in list when identities differ (manual vs linked).
+  - Same display name can exist in list when identities differ (manual vs linked), e.g. linked member joins later.
+  - Add-participant form blocks case-insensitive duplicate names that already exist in list.
   - Do not visually collapse or group same-name rows into one row.
   - If same-name rows exist, show a stable secondary identifier:
     - linked row: email or `@handle` when available
@@ -365,7 +389,7 @@ Modes:
 - **Purpose**: create expense quickly (FR-4).
 - **Fields**:
   - Payer select
-  - Amount numeric input (with localized formatting)
+  - Amount decimal input (`inputMode=decimal`)
   - Currency segmented control (USD/TWD/JPY/EUR)
   - Description optional
   - Primary CTA `Save Expense`
@@ -373,7 +397,7 @@ Modes:
 ### Frame 10 — Validation Error State
 
 - **Name**: `FS-Mobile-Expense-AddSheet-Validation-en`
-- **Purpose**: immediate field-level errors (FR-4).
+- **Purpose**: submit-time validation feedback in current implementation (FR-4).
 - **Cases**:
   - missing payer
   - amount <= 0
@@ -384,7 +408,7 @@ Modes:
 - **Name**: `FS-Mobile-Expense-RowActions-zhTW`
 - **Purpose**: mistake correction flow (FR-5).
 - **Content**:
-  - Swipe actions: Edit / Soft Delete.
+  - Row trailing actions: `Edit` / `Delete expense`.
   - Soft-deleted card style: muted + “Deleted” badge + `Restore` CTA.
 
 ## 5.5 Settlement & Exchange
@@ -423,7 +447,7 @@ Modes:
 ### Frame 15 — Realtime Update Toast
 
 - **Name**: `FS-Mobile-Realtime-Toast-en`
-- **Purpose**: indicate Pusher update arrival (FR-8).
+- **Purpose**: indicate GraphQL subscription update arrival (FR-8).
 - **Content**:
   - Toast: `Expense list updated just now`.
 
@@ -433,7 +457,7 @@ Modes:
 - **Purpose**: export setup and included sections (FR-9).
 - **Content**:
   - Checklist of included fields (project name, export time, target currency, rate snapshot, settlements, expense detail).
-  - Toggle: include soft-deleted expenses.
+  - Current behavior: soft-deleted expenses are excluded (no user toggle yet).
 
 ### Frame 17 — Language Auto Detect
 
@@ -545,5 +569,6 @@ Use these prompts to generate visual references for stakeholder review.
 - Ensure all modal and bottom-sheet components are keyboard accessible.
 - Keep AC-related UI states explicit (blocked remove, deleted/restore, rate source).
 - For PWA readiness, reserve UI slots for install prompt and sync status.
+- Realtime updates are delivered via GraphQL subscription (`expenseAdded`), not vendor-specific push service.
 - For MCP-driven implementation workflow, follow `docs/FIGMA_MCP_WORKFLOW.md`.
 - For reusable MCP instruction prompts, use `docs/FIGMA_MCP_PROMPT_TEMPLATE.md`.

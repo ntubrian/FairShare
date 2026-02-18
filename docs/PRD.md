@@ -90,9 +90,16 @@
 ```mermaid
 flowchart TD
 A[Enter App] --> B{Already signed in with Google?}
-B -- No --> C[Google OAuth sign-in]
-B -- Yes --> D[Project list]
-C --> D
+B -- No --> C[Auth Entry (Continue / Create / Join)]
+C --> C1[Tap Continue with Google]
+C --> C2[Tap Create Project]
+C --> C3[Tap Join Project]
+C2 --> C4[Store postAuthIntent=create]
+C3 --> C5[Store postAuthIntent=join]
+C1 --> D[Project list]
+C4 --> D
+C5 --> D
+B -- Yes --> D
 D --> E{Create / Join / Open existing project}
 E --> E1[Create project]
 E --> E2[Join project]
@@ -135,6 +142,23 @@ T --> U[Export PDF]
 - No company-domain restriction.
 - Unauthenticated users cannot access project data pages.
 
+### FR-1b Auth Entry Intent Flow (Create / Join buttons on Auth screen)
+
+- On Auth screen, `Create Project` and `Join Project` are **intent buttons**, not dead controls.
+- If unauthenticated:
+  - tapping `Create Project` must store `postAuthIntent = create` and guide user to Google sign-in.
+  - tapping `Join Project` must store `postAuthIntent = join` and guide user to Google sign-in.
+- After authentication succeeds:
+  - if `postAuthIntent = create`, app opens Create Project modal directly.
+  - if `postAuthIntent = join`, app opens Join Project entry directly.
+- If invite deep link (`/join?code=...`) exists before authentication:
+  - app stores `pendingInviteCode`.
+  - after authentication, app attempts join automatically with `pendingInviteCode`.
+  - priority rule: `pendingInviteCode` takes precedence over `postAuthIntent`.
+- If auto-join fails, app must open Join entry with preserved input for retry.
+- If Google is not ready or config is missing, tapping Create/Join must still give clear guidance (never silent no-op).
+- If offline, Create/Join must show actionable offline message and keep user intent.
+
 ### FR-2 Project Management
 
 - Users can create multiple projects.
@@ -161,6 +185,15 @@ T --> U[Export PDF]
 
 - Participants can be added to the current project.
 - When removing a participant, if the participant appears in any non-deleted expense, removal must be blocked with a friendly message.
+
+### FR-3b Participant Identity and Linking Policy (Authoritative)
+
+- `Participant` is a project-scoped ledger identity, not equal to app account identity.
+- A manually added participant (`userId = null`) must remain independent from any future registered/joined user, even if names are identical.
+- If a user joins later and has the same display name as an existing manual participant, system must create or keep a separate linked participant (`userId = app_user.id`) and must not auto-merge.
+- Existing expense records must remain attached to original `participantId`; no silent reassignment is allowed.
+- Same-name participants are allowed when one is manual and one is linked.
+- Any merge or transfer between participants is out of scope for v1 and must not happen implicitly.
 
 ### FR-4 Expense Management
 
@@ -229,10 +262,27 @@ T --> U[Export PDF]
 - On successful join, success message must be shown and project list must immediately reflect the newly joined project.
 - If user is already a member, show an info message instead of a generic error.
 
+### AC-1c Auth Entry Intent Continuation
+
+- On Auth screen, tapping `Create Project` or `Join Project` must produce immediate UI feedback (no dead state).
+- After successful Google sign-in:
+  - Create intent opens Create modal without extra tap.
+  - Join intent opens Join entry without extra tap.
+- With deep link invite code present, post-auth flow attempts auto-join before processing create/join intent.
+- When auto-join fails, user stays in a recoverable join flow with preserved code and retry action.
+
 ### AC-2 Participant Removal Validation
 
 - If participant already has expenses, remove action must fail with reason.
 - If participant has no expenses, removal succeeds.
+
+### AC-2b Participant Identity Separation
+
+- Given a manual participant `A` exists first, when a real user with display name `A` joins later:
+  - the system must show two participant records (manual + linked),
+  - historical expenses on manual `A` must stay on manual `A`,
+  - new expenses can be created for either participant explicitly,
+  - no background merge/rewire may occur.
 
 ### AC-3 Expense Correction
 
