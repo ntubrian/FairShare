@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLazyQuery, useMutation, useQuery, useSubscription } from "@apollo/client/react";
+import { PopupMessage, PopupMessages } from "../../components/PopupMessages";
 import {
   CalculateSettlementDocument,
   Currency,
@@ -229,6 +230,7 @@ export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogo
   const [agreedRateFromCurrency, setAgreedRateFromCurrency] = useState<Currency>(Currency.Usd);
   const [agreedRateInput, setAgreedRateInput] = useState("");
   const [agreedRateError, setAgreedRateError] = useState<string | null>(null);
+  const [dismissedQueryError, setDismissedQueryError] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -497,19 +499,26 @@ export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogo
     return `1 ${first.currency} = ${first.rate.toFixed(4)} ${settlementResult.targetCurrency}`;
   }, [settlementResult]);
 
-  const settlementHint = settlementError
-    ? "Unable to calculate settlement. Retry to continue."
-    : settlementRateSource === RateSource.Live
-      ? "Using Live API rates (only when no agreed rate exists)."
-      : "Agreed rate will be used (priority over Live API).";
+  const settlementHint = settlementRateSource === RateSource.Live
+    ? "Using Live API rates (only when no agreed rate exists)."
+    : "Agreed rate will be used (priority over Live API).";
 
-  const screenError = useMemo(() => {
+  const queryErrorMessage = useMemo(() => {
     const firstError = projectError || participantsError || expensesError || summaryError;
     if (!firstError) {
-      return localError;
+      return null;
     }
-    return toFriendlyError(firstError) || localError;
-  }, [projectError, participantsError, expensesError, summaryError, localError]);
+    const message = toFriendlyError(firstError);
+    return message || null;
+  }, [projectError, participantsError, expensesError, summaryError]);
+  const visibleQueryError =
+    queryErrorMessage && queryErrorMessage !== dismissedQueryError ? queryErrorMessage : null;
+
+  useEffect(() => {
+    if (!queryErrorMessage) {
+      setDismissedQueryError(null);
+    }
+  }, [queryErrorMessage]);
 
   const expenseActionNotice = useMemo(() => {
     if (!expenseActionBusy) {
@@ -850,9 +859,47 @@ export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogo
   const isLoading = projectLoading || participantsLoading || expensesLoading || summaryLoading;
   const saveExpenseLoading = createExpenseLoading || updateExpenseLoading;
   const disableMutationControls = saveExpenseLoading || !canMutate;
+  const popupMessages: PopupMessage[] = [];
+  if (visibleQueryError) {
+    popupMessages.push({
+      id: `expenses-query-error-${visibleQueryError}`,
+      tone: "error",
+      message: visibleQueryError,
+      onDismiss: () => setDismissedQueryError(visibleQueryError),
+    });
+  }
+  if (localError) {
+    popupMessages.push({
+      id: `expenses-local-error-${localError}`,
+      tone: "error",
+      message: localError,
+      onDismiss: () => setLocalError(null),
+    });
+  }
+  if (agreedRateError) {
+    popupMessages.push({
+      id: `expenses-agreed-rate-error-${agreedRateError}`,
+      tone: "error",
+      message: agreedRateError,
+      onDismiss: () => setAgreedRateError(null),
+    });
+  }
+  if (settlementError) {
+    popupMessages.push({
+      id: `expenses-settlement-error-${settlementError}`,
+      tone: "warning",
+      message: settlementError,
+      actionLabel: "Retry",
+      onAction: () => {
+        void onCalculateSettlement();
+      },
+      onDismiss: () => setSettlementError(null),
+    });
+  }
 
   return (
     <main className={styles.screen}>
+      <PopupMessages messages={popupMessages} />
       <header className={styles.headerCard}>
         <button type="button" className={styles.backButton} onClick={onBack} aria-label="Back to projects">
           ←
@@ -1010,21 +1057,7 @@ export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogo
             ) : (
               <p className={styles.settlementHint}>Only Owner or Editor can edit agreed rates.</p>
             )}
-            {agreedRateError ? <p className={styles.errorInline}>{agreedRateError}</p> : null}
           </div>
-          {settlementError ? (
-            <div className={styles.rateErrorRow}>
-              <span>{settlementError}</span>
-              <button
-                type="button"
-                className={styles.retryButton}
-                onClick={() => void onCalculateSettlement()}
-                disabled={calculateSettlementLoading}
-              >
-                Retry
-              </button>
-            </div>
-          ) : null}
         </div>
 
         <p className={styles.settlementHint}>{settlementHint}</p>
@@ -1418,8 +1451,6 @@ export const ExpensesScreen = ({ projectId, viewerId, viewerName, onBack, onLogo
           </section>
         </div>
       ) : null}
-
-      {screenError ? <section className={styles.errorBanner}>{screenError}</section> : null}
     </main>
   );
 };

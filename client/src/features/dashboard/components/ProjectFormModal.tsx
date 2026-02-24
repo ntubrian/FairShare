@@ -1,4 +1,5 @@
 import React, { FormEvent, useEffect, useState } from "react";
+import { PopupMessages } from "../../../components/PopupMessages";
 import type { DashboardProject, ProjectFormInput } from "../types";
 import styles from "../Dashboard.module.scss";
 
@@ -48,6 +49,16 @@ export const ProjectFormModal = ({
   }
 
   const title = mode === "create" ? "Create Project" : "Edit Project";
+  const popupMessages = validationError
+    ? [
+        {
+          id: `project-form-validation-${validationError}`,
+          tone: "warning" as const,
+          message: validationError,
+          onDismiss: () => setValidationError(null),
+        },
+      ]
+    : [];
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -75,6 +86,7 @@ export const ProjectFormModal = ({
       aria-label={title}
     >
       <div className={styles.modalCard}>
+        <PopupMessages messages={popupMessages} />
         <div className={styles.modalHeader}>
           <h3>{title}</h3>
           <button
@@ -132,10 +144,6 @@ export const ProjectFormModal = ({
               }
             />
           </label>
-
-          {validationError ? (
-            <p className={styles.errorInline}>{validationError}</p>
-          ) : null}
 
           <div className={styles.modalFooter}>
             <button

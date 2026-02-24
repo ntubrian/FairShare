@@ -1,0 +1,81 @@
+.stack {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 3000;
+    width: min(420px, calc(100vw - 24px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  
+  .popup {
+    pointer-events: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .popupError {
+    border-color: #f3b8b8;
+    background: #fff3f2;
+  }
+  
+  .popupWarning {
+    border-color: #f2d5a8;
+    background: #fff8ef;
+  }
+  
+  .popupInfo {
+    border-color: #bfd8f6;
+    background: #eff6ff;
+  }
+  
+  .popupSuccess {
+    border-color: #b8e1c9;
+    background: #edf9f0;
+  }
+  
+  .message {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  
+  .actionButton,
+  .dismissButton {
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1;
+    padding: 8px 11px;
+  }
+  
+  .actionButton {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: #fff;
+  }
+  
+  .dismissButton {
+    background: #fff;
+    border-color: var(--border-default);
+    color: var(--text-primary);
+  }
+  
+  .dismissButton:hover:not(:disabled) {
+    background: #f8fafc;
+  }
+  
