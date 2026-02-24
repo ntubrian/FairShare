@@ -1,4 +1,5 @@
 import React, { FormEvent, useEffect, useState } from "react";
+import { PopupMessages } from "../../../components/PopupMessages";
 import styles from "../Dashboard.module.scss";
 
 type JoinProjectModalProps = {
@@ -52,6 +53,17 @@ export const JoinProjectModal = ({
     return null;
   }
 
+  const popupMessages = validationError
+    ? [
+        {
+          id: `join-form-validation-${validationError}`,
+          tone: "warning" as const,
+          message: validationError,
+          onDismiss: () => setValidationError(null),
+        },
+      ]
+    : [];
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setValidationError(null);
@@ -71,6 +83,7 @@ export const JoinProjectModal = ({
       aria-label="Join project"
     >
       <div className={styles.modalCard}>
+        <PopupMessages messages={popupMessages} />
         <div className={styles.modalHeader}>
           <h3>Join Project</h3>
           <button
@@ -104,10 +117,6 @@ export const JoinProjectModal = ({
               placeholder="Enter 6-10 character code"
             />
           </label>
-
-          {validationError ? (
-            <p className={styles.errorInline}>{validationError}</p>
-          ) : null}
 
           <div className={styles.modalFooter}>
             <button

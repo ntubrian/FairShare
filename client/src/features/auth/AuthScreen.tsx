@@ -1,4 +1,5 @@
 import React, { FormEvent, useEffect, useState } from "react";
+import { PopupMessage, PopupMessages } from "../../components/PopupMessages";
 import styles from "./AuthScreen.module.scss";
 
 type AuthScreenProps = {
@@ -16,6 +17,7 @@ type AuthScreenProps = {
   viewerLoading: boolean;
   viewerError?: string;
   error?: string;
+  onDismissError?: () => void;
 };
 
 export const AuthScreen = ({
@@ -33,9 +35,19 @@ export const AuthScreen = ({
   viewerLoading,
   viewerError,
   error,
+  onDismissError,
 }: AuthScreenProps) => {
   const [guideOpen, setGuideOpen] = useState(false);
   const [entryHint, setEntryHint] = useState<"create" | "join" | null>(null);
+  const [dismissedGoogleError, setDismissedGoogleError] = useState<
+    string | null
+  >(null);
+  const [dismissedViewerError, setDismissedViewerError] = useState<
+    string | null
+  >(null);
+  const [dismissedAppError, setDismissedAppError] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     if (!entryHint) {
@@ -44,6 +56,24 @@ export const AuthScreen = ({
     const timer = window.setTimeout(() => setEntryHint(null), 2400);
     return () => window.clearTimeout(timer);
   }, [entryHint]);
+
+  useEffect(() => {
+    if (!googleError) {
+      setDismissedGoogleError(null);
+    }
+  }, [googleError]);
+
+  useEffect(() => {
+    if (!viewerError) {
+      setDismissedViewerError(null);
+    }
+  }, [viewerError]);
+
+  useEffect(() => {
+    if (!error) {
+      setDismissedAppError(null);
+    }
+  }, [error]);
 
   const onClickEntryAction = (intent: "create" | "join") => {
     onEntryIntent(intent);
@@ -54,8 +84,38 @@ export const AuthScreen = ({
     });
   };
 
+  const popupMessages: PopupMessage[] = [];
+  if (googleError && googleError !== dismissedGoogleError) {
+    popupMessages.push({
+      id: `google-${googleError}`,
+      tone: "error",
+      message: googleError,
+      onDismiss: () => setDismissedGoogleError(googleError),
+    });
+  }
+  if (viewerError && viewerError !== dismissedViewerError) {
+    popupMessages.push({
+      id: `viewer-${viewerError}`,
+      tone: "error",
+      message: viewerError,
+      onDismiss: () => setDismissedViewerError(viewerError),
+    });
+  }
+  if (error && error !== dismissedAppError) {
+    popupMessages.push({
+      id: `app-${error}`,
+      tone: "warning",
+      message: error,
+      onDismiss: () => {
+        setDismissedAppError(error);
+        onDismissError?.();
+      },
+    });
+  }
+
   return (
     <main className={`${styles.appShell} ${styles.authShell}`}>
+      <PopupMessages messages={popupMessages} />
       <section
         className={`${styles.card} ${styles.authCard} ${styles.authHeroCard}`}
       >
@@ -90,9 +150,6 @@ export const AuthScreen = ({
           {googleClientConfigured ? (
             <>
               <div ref={googleButtonRef} />
-              {googleError ? (
-                <p className={styles.errorInline}>{googleError}</p>
-              ) : null}
               {!googleReady && !googleError ? (
                 <p className={styles.hintLine}>Loading Google sign-in...</p>
               ) : null}
@@ -164,10 +221,6 @@ export const AuthScreen = ({
         {viewerLoading ? (
           <p className={styles.hintLine}>Checking session...</p>
         ) : null}
-        {viewerError ? (
-          <p className={styles.errorInline}>{viewerError}</p>
-        ) : null}
-        {error ? <p className={styles.errorInline}>{error}</p> : null}
       </section>
 
       {/* <footer className={styles.authFooterLinks}>

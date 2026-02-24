@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
+import { PopupMessage, PopupMessages } from "../../components/PopupMessages";
 import {
   AddParticipantDocument,
   MemberRole,
@@ -96,6 +97,9 @@ export const MembersScreen = ({
   const [removeBlockedName, setRemoveBlockedName] = useState("");
 
   const [notice, setNotice] = useState<string | null>(null);
+  const [dismissedScreenError, setDismissedScreenError] = useState<
+    string | null
+  >(null);
   const roleDraftSeedRef = useRef("");
 
   const {
@@ -187,16 +191,6 @@ export const MembersScreen = ({
     roleDraftSeedRef.current = roleSeed;
     setRoleDrafts(buildRoleDraftMap(members));
   }, [members, roleSeed]);
-
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setNotice(null);
-    }, 2200);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
 
   useEffect(() => {
     if (!accountMenuOpen) {
@@ -473,9 +467,52 @@ export const MembersScreen = ({
     const message = toFriendlyError(firstError);
     return message || null;
   }, [projectError, participantsError]);
+  const visibleScreenError =
+    screenError && screenError !== dismissedScreenError ? screenError : null;
+
+  useEffect(() => {
+    if (!screenError) {
+      setDismissedScreenError(null);
+    }
+  }, [screenError]);
+
+  const popupMessages: PopupMessage[] = [];
+  if (notice) {
+    popupMessages.push({
+      id: `members-notice-${notice}`,
+      tone: "info",
+      message: notice,
+      onDismiss: () => setNotice(null),
+    });
+  }
+  if (visibleScreenError) {
+    popupMessages.push({
+      id: `members-screen-error-${visibleScreenError}`,
+      tone: "error",
+      message: visibleScreenError,
+      onDismiss: () => setDismissedScreenError(visibleScreenError),
+    });
+  }
+  if (roleError) {
+    popupMessages.push({
+      id: `members-role-error-${roleError}`,
+      tone: "error",
+      message: roleError,
+      onDismiss: () => setRoleError(null),
+    });
+  }
+  if (participantError) {
+    popupMessages.push({
+      id: `members-participant-error-${participantError}`,
+      tone: "error",
+      message: participantError,
+      onDismiss: () => setParticipantError(null),
+    });
+  }
 
   return (
     <main className={styles.screen}>
+      <PopupMessages messages={popupMessages} />
       <header className={styles.headerCard}>
         <button
           type="button"
@@ -529,13 +566,6 @@ export const MembersScreen = ({
           </div>
         </div>
       </header>
-
-      {notice ? (
-        <section className={styles.noticeBanner}>{notice}</section>
-      ) : null}
-      {screenError ? (
-        <section className={styles.errorBanner}>{screenError}</section>
-      ) : null}
 
       <section className={styles.card}>
         <div className={styles.sectionHeader}>
@@ -592,8 +622,6 @@ export const MembersScreen = ({
             );
           })}
         </div>
-
-        {roleError ? <p className={styles.errorInline}>{roleError}</p> : null}
 
         <div className={styles.sectionActions}>
           <button
@@ -721,10 +749,6 @@ export const MembersScreen = ({
             );
           })}
         </div>
-
-        {participantError ? (
-          <p className={styles.errorInline}>{participantError}</p>
-        ) : null}
 
         <div className={styles.addRow}>
           <input

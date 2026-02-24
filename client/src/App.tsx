@@ -588,24 +588,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!joinFeedback) {
-      return;
-    }
-    if (joinFeedback.tone === "error") {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setJoinFeedback((current) => {
-        if (!current || current.tone === "error") {
-          return current;
-        }
-        return null;
-      });
-    }, 2500);
-    return () => window.clearTimeout(timer);
-  }, [joinFeedback]);
-
-  useEffect(() => {
     if (isAuthChecking) {
       return;
     }
@@ -900,6 +882,7 @@ export default function App() {
         viewerLoading={viewerLoading || initializing}
         viewerError={viewerError ? toFriendlyError(viewerError) : undefined}
         error={error ?? undefined}
+        onDismissError={() => setError(null)}
       />
     );
   }
@@ -970,6 +953,7 @@ export default function App() {
       openJoinSignal={openJoinSignal}
       joinPrefillValue={joinPrefillValue}
       error={error ?? undefined}
+      onDismissError={() => setError(null)}
     />
   );
 }

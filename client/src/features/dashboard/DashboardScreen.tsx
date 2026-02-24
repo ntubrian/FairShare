@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { PopupMessage, PopupMessages } from "../../components/PopupMessages";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { JoinProjectModal } from "./components/JoinProjectModal";
 import { ProjectActionSheet } from "./components/ProjectActionSheet";
@@ -52,6 +53,7 @@ type DashboardScreenProps = {
   openJoinSignal?: number;
   joinPrefillValue?: string;
   error?: string;
+  onDismissError?: () => void;
 };
 
 type ConfirmState = {
@@ -106,6 +108,7 @@ export const DashboardScreen = ({
   openJoinSignal = 0,
   joinPrefillValue = "",
   error,
+  onDismissError,
 }: DashboardScreenProps) => {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -117,6 +120,7 @@ export const DashboardScreen = ({
     DEFAULT_CONFIRM_STATE
   );
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -161,6 +165,12 @@ export const DashboardScreen = ({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!error) {
+      setDismissedError(null);
+    }
+  }, [error]);
 
   const pageCaption = useMemo(() => {
     if (projectPage.total === 0) {
@@ -256,8 +266,39 @@ export const DashboardScreen = ({
     await onLogout();
   };
 
+  const popupMessages: PopupMessage[] = [];
+  if (error && error !== dismissedError) {
+    popupMessages.push({
+      id: `dashboard-error-${error}`,
+      tone: "error",
+      message: error,
+      onDismiss: () => {
+        setDismissedError(error);
+        onDismissError?.();
+      },
+    });
+  }
+  if (joinFeedback) {
+    popupMessages.push({
+      id: `join-feedback-${joinFeedback.tone}-${joinFeedback.message}`,
+      tone:
+        joinFeedback.tone === "error"
+          ? "error"
+          : joinFeedback.tone === "info"
+          ? "info"
+          : "success",
+      message: joinFeedback.message,
+      actionLabel: joinFeedback.actionLabel,
+      onAction: joinFeedback.actionLabel
+        ? () => onJoinFeedbackAction?.()
+        : undefined,
+      onDismiss: () => onDismissJoinFeedback?.(),
+    });
+  }
+
   return (
     <main className={`${styles.appShell} ${styles.projectsShell}`}>
+      <PopupMessages messages={popupMessages} />
       <header className={`${styles.projectsHeader} ${styles.card}`}>
         <div className={styles.projectsTitleWrap}>
           <h1>Projects</h1>
@@ -310,40 +351,6 @@ export const DashboardScreen = ({
           </div>
         </div>
       </header>
-
-      {joinFeedback ? (
-        <section
-          className={`${styles.joinFeedbackCard} ${
-            joinFeedback.tone === "success"
-              ? styles.joinFeedbackSuccess
-              : joinFeedback.tone === "info"
-              ? styles.joinFeedbackInfo
-              : styles.joinFeedbackError
-          }`}
-          role={joinFeedback.tone === "error" ? "alert" : "status"}
-          aria-live={joinFeedback.tone === "error" ? "assertive" : "polite"}
-        >
-          <p className={styles.joinFeedbackMessage}>{joinFeedback.message}</p>
-          <div className={styles.joinFeedbackActions}>
-            {joinFeedback.actionLabel ? (
-              <button
-                type="button"
-                className={styles.joinFeedbackActionButton}
-                onClick={() => onJoinFeedbackAction?.()}
-              >
-                {joinFeedback.actionLabel}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={styles.joinFeedbackDismissButton}
-              onClick={() => onDismissJoinFeedback?.()}
-            >
-              Dismiss
-            </button>
-          </div>
-        </section>
-      ) : null}
 
       <section className={`${styles.card} ${styles.projectsToolbar}`}>
         <input
@@ -453,9 +460,6 @@ export const DashboardScreen = ({
           </button>
         ) : null}
       </section>
-
-      {error ? <section className={styles.errorCard}>{error}</section> : null}
-
       <JoinProjectModal
         open={joinOpen}
         busy={actionBusy}
